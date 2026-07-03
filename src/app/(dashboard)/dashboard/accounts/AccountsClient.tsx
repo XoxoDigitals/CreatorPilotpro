@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ExternalLink, Unplug } from "lucide-react";
 import {
-  addAccount,
   generateId,
   getAccounts,
   removeAccount,
+  upsertAccount,
+  normalizeAccountHandle,
 } from "@/lib/stores/app-store";
 import { getPlatformConfigs } from "@/lib/platforms/config";
 import { btnPrimary, cardClass } from "@/lib/form-styles";
@@ -15,26 +16,46 @@ import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 import type { ConnectedAccount, Platform } from "@/lib/types";
 
+function formatHandle(handle: string): string {
+  const clean = handle.replace(/^@+/, "").trim();
+  return clean ? `@${clean}` : handle;
+}
+
 export default function AccountsClient() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const searchParams = useSearchParams();
   const platforms = getPlatformConfigs();
   const error = searchParams.get("error");
+  const oauthHandled = useRef(false);
 
   useEffect(() => {
     const connected = searchParams.get("connected") as Platform | null;
     const name = searchParams.get("name");
+    const handleParam = searchParams.get("handle");
     const sandbox = searchParams.get("sandbox") !== "false";
 
-    if (connected && name) {
-      addAccount({
-        id: generateId(`acc-${connected}`),
-        platform: connected,
-        name,
-        handle: name.replace(/\s+/g, "").toLowerCase(),
-        connectedAt: new Date().toISOString(),
-        sandbox,
-      });
+    if (connected && name && !oauthHandled.current) {
+      oauthHandled.current = true;
+
+      const handle =
+        handleParam?.trim() ||
+        `@${normalizeAccountHandle(name)}`;
+
+      const oauthKey = `creator-pilot-oauth-${connected}-${normalizeAccountHandle(handle)}`;
+      const alreadyProcessed = sessionStorage.getItem(oauthKey);
+
+      if (!alreadyProcessed) {
+        upsertAccount({
+          id: generateId(`acc-${connected}`),
+          platform: connected,
+          name,
+          handle,
+          connectedAt: new Date().toISOString(),
+          sandbox,
+        });
+        sessionStorage.setItem(oauthKey, "1");
+      }
+
       window.history.replaceState({}, "", "/dashboard/accounts");
     }
 
@@ -88,16 +109,19 @@ export default function AccountsClient() {
                       key={acc.id}
                       className="flex items-center justify-between rounded-xl border border-border p-3"
                     >
-                      <div>
-                        <p className="text-sm font-semibold">{acc.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {acc.handle} {acc.sandbox && "· Sandbox"}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {formatHandle(acc.handle)}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {acc.name}
+                          {acc.sandbox ? " · Sandbox" : ""}
                         </p>
                       </div>
                       <button
                         type="button"
                         onClick={() => disconnect(acc.id)}
-                        className="text-destructive hover:opacity-80"
+                        className="shrink-0 text-destructive hover:opacity-80"
                         aria-label="Disconnect"
                       >
                         <Unplug className="h-4 w-4" />

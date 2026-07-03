@@ -74,8 +74,28 @@ export function clearAllAppData(): void {
   localStorage.setItem(STORAGE_KEYS.dataVersion, String(DATA_STORE_VERSION));
 }
 
+export function normalizeAccountHandle(handle: string): string {
+  return handle.replace(/^@+/, "").trim().toLowerCase();
+}
+
+function dedupeAccounts(accounts: ConnectedAccount[]): ConnectedAccount[] {
+  const seen = new Map<string, ConnectedAccount>();
+  for (const account of accounts) {
+    const key = `${account.platform}:${normalizeAccountHandle(account.handle)}`;
+    if (!seen.has(key)) {
+      seen.set(key, account);
+    }
+  }
+  return Array.from(seen.values());
+}
+
 export function getAccounts(): ConnectedAccount[] {
-  return readStorage<ConnectedAccount[]>(STORAGE_KEYS.accounts, []);
+  const accounts = readStorage<ConnectedAccount[]>(STORAGE_KEYS.accounts, []);
+  const deduped = dedupeAccounts(accounts);
+  if (deduped.length !== accounts.length) {
+    writeStorage(STORAGE_KEYS.accounts, deduped);
+  }
+  return deduped;
 }
 
 export function saveAccounts(accounts: ConnectedAccount[]): void {
@@ -83,8 +103,35 @@ export function saveAccounts(accounts: ConnectedAccount[]): void {
 }
 
 export function addAccount(account: ConnectedAccount): void {
+  upsertAccount(account);
+}
+
+/** Add or refresh a connected account without creating duplicates. */
+export function upsertAccount(account: ConnectedAccount): void {
   const accounts = getAccounts();
-  saveAccounts([...accounts.filter((a) => a.id !== account.id), account]);
+  const handleKey = normalizeAccountHandle(account.handle);
+  const existing = accounts.find(
+    (a) =>
+      a.platform === account.platform &&
+      normalizeAccountHandle(a.handle) === handleKey
+  );
+
+  if (existing) {
+    saveAccounts(
+      accounts.map((a) =>
+        a.id === existing.id
+          ? {
+              ...account,
+              id: existing.id,
+              connectedAt: account.connectedAt || a.connectedAt,
+            }
+          : a
+      )
+    );
+    return;
+  }
+
+  saveAccounts([account, ...accounts]);
 }
 
 export function removeAccount(id: string): void {

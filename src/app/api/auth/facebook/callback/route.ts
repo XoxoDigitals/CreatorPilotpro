@@ -31,18 +31,25 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenRes.json();
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?access_token=${tokens.access_token}`
+      `https://graph.facebook.com/v21.0/me/accounts?fields=name,username,id&access_token=${tokens.access_token}`
     );
 
     let pageName = "Facebook Page";
+    let pageHandle = "facebook";
     if (pagesRes.ok) {
       const data = await pagesRes.json();
-      pageName = data.data?.[0]?.name ?? pageName;
+      const page = data.data?.[0];
+      pageName = page?.name ?? pageName;
+      const username = page?.username ?? page?.id;
+      pageHandle = username
+        ? `@${String(username).replace(/^@/, "")}`
+        : `@${pageName.replace(/\s+/g, "").toLowerCase()}`;
     }
 
     const params = new URLSearchParams({
       connected: "facebook",
       name: pageName,
+      handle: pageHandle,
       sandbox: "false",
     });
 

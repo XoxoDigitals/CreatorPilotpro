@@ -42,14 +42,19 @@ export async function GET(request: NextRequest) {
     );
 
     let channelName = "YouTube Channel";
+    let channelHandle = "youtube";
     if (channelRes.ok) {
       const data = await channelRes.json();
-      channelName = data.items?.[0]?.snippet?.title ?? channelName;
+      const snippet = data.items?.[0]?.snippet;
+      channelName = snippet?.title ?? channelName;
+      const customUrl = snippet?.customUrl?.replace(/^@/, "");
+      channelHandle = customUrl ? `@${customUrl}` : `@${channelName.replace(/\s+/g, "").toLowerCase()}`;
     }
 
     const params = new URLSearchParams({
       connected: "youtube",
       name: channelName,
+      handle: channelHandle,
       sandbox: "false",
     });
 

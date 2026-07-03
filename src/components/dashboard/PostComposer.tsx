@@ -24,6 +24,7 @@ import {
   postDisplayTitle,
   YOUTUBE_CATEGORIES,
 } from "@/lib/platform-post-fields";
+import Link from "next/link";
 import { getAccounts, generateId } from "@/lib/stores/app-store";
 import { resolveMediaObjectUrl } from "@/lib/media-storage";
 import { MediaUpload } from "@/components/dashboard/MediaUpload";
@@ -38,6 +39,34 @@ interface PostComposerProps {
 }
 
 const PLATFORMS: Platform[] = ["youtube", "tiktok", "facebook"];
+
+function formatHandle(handle: string): string {
+  const clean = handle.replace(/^@+/, "").trim();
+  return clean ? `@${clean}` : handle;
+}
+
+function syncAccountSelection(
+  platforms: Platform[],
+  selected: string[],
+  allAccounts: ReturnType<typeof getAccounts>
+): string[] {
+  let next = selected.filter((id) => {
+    const acc = allAccounts.find((a) => a.id === id);
+    return acc && platforms.includes(acc.platform);
+  });
+
+  for (const platform of platforms) {
+    const hasPlatform = next.some(
+      (id) => allAccounts.find((a) => a.id === id)?.platform === platform
+    );
+    if (!hasPlatform) {
+      const first = allAccounts.find((a) => a.platform === platform);
+      if (first) next = [...next, first.id];
+    }
+  }
+
+  return next;
+}
 
 export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -63,6 +92,14 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
   const [facebook, setFacebook] = useState<FacebookPostContent>(
     initial?.facebook ?? defaultFacebookContent()
   );
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>(() =>
+    syncAccountSelection(
+      initial?.platforms ?? ["youtube"],
+      initial?.accountIds ?? [],
+      getAccounts()
+    )
+  );
+  const connectedAccounts = getAccounts();
 
   useEffect(() => {
     let cancelled = false;
@@ -105,13 +142,37 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
       const next = prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p];
       if (next.length === 0) return prev;
       if (!next.includes(activeTab)) setActiveTab(next[0]);
+      setSelectedAccountIds((selected) =>
+        syncAccountSelection(next, selected, getAccounts())
+      );
       return next;
     });
   }
 
+  function selectAccountForPlatform(platform: Platform, accountId: string) {
+    setSelectedAccountIds((prev) => {
+      const all = getAccounts();
+      const withoutPlatform = prev.filter(
+        (id) => all.find((a) => a.id === id)?.platform !== platform
+      );
+      return [...withoutPlatform, accountId];
+    });
+  }
+
+  const missingPlatformAccounts = platforms.filter(
+    (p) => !connectedAccounts.some((a) => a.platform === p)
+  );
+  const canContinue =
+    platforms.length > 0 &&
+    missingPlatformAccounts.length === 0 &&
+    platforms.every((p) =>
+      selectedAccountIds.some(
+        (id) => connectedAccounts.find((a) => a.id === id)?.platform === p
+      )
+    );
+
   function handleSubmit(asDraft: boolean, postNow = false) {
-    if (platforms.length === 0) return;
-    const accounts = getAccounts().filter((a) => platforms.includes(a.platform));
+    if (platforms.length === 0 || !canContinue) return;
     const title = postDisplayTitle(platforms, youtube, tiktok, facebook);
     const description =
       youtube.description || facebook.message || tiktok.caption || "";
@@ -122,7 +183,9 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
       title,
       description,
       platforms,
-      accountIds: accounts.map((a) => a.id),
+      accountIds: selectedAccountIds.filter((id) =>
+        connectedAccounts.some((a) => a.id === id && platforms.includes(a.platform))
+      ),
       scheduledAt: postNow
         ? now
         : scheduledAt
@@ -185,6 +248,70 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
               ))}
             </div>
           </div>
+
+          {platforms.length > 0 && (
+            <div className="space-y-4">
+              <p className={labelClass}>Which accounts should receive this post?</p>
+              {platforms.map((platform) => {
+                const platformAccounts = connectedAccounts.filter(
+                  (a) => a.platform === platform
+                );
+                if (platformAccounts.length === 0) {
+                  return (
+                    <div
+                      key={platform}
+                      className="rounded-xl border border-dashed border-border p-4 text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <PlatformIcon platform={platform} />
+                        <span className="capitalize">{platform}</span>
+                      </div>
+                      <p className="mt-2 text-muted-foreground">
+                        No account connected.{" "}
+                        <Link href="/dashboard/accounts" className="text-primary underline">
+                          Connect one →
+                        </Link>
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={platform} className="rounded-xl border border-border p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <PlatformIcon platform={platform} />
+                      <span className="text-sm font-semibold capitalize">{platform}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {platformAccounts.map((acc) => (
+                        <label
+                          key={acc.id}
+                          className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition ${
+                            selectedAccountIds.includes(acc.id)
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/30"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`account-${platform}`}
+                            checked={selectedAccountIds.includes(acc.id)}
+                            onChange={() => selectAccountForPlatform(platform, acc.id)}
+                            className="h-4 w-4 accent-[var(--primary)]"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold">{formatHandle(acc.handle)}</p>
+                            <p className="truncate text-xs text-muted-foreground">{acc.name}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div>
             <p className={labelClass}>Video or image</p>
             <div className="mt-2">
@@ -204,7 +331,7 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
           </div>
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onCancel} className={btnSecondary}>Cancel</button>
-            <button type="button" onClick={() => setStep(2)} className={btnPrimary} disabled={platforms.length === 0}>
+            <button type="button" onClick={() => setStep(2)} className={btnPrimary} disabled={!canContinue}>
               Next: Edit content
             </button>
           </div>
@@ -426,6 +553,17 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
             <div className="mt-2 flex flex-wrap gap-2">
               {platforms.map((p) => <PlatformIcon key={p} platform={p} />)}
             </div>
+            <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+              {selectedAccountIds.map((id) => {
+                const acc = connectedAccounts.find((a) => a.id === id);
+                if (!acc) return null;
+                return (
+                  <li key={id}>
+                    <span className="capitalize">{acc.platform}</span>: {formatHandle(acc.handle)}
+                  </li>
+                );
+              })}
+            </ul>
             {mediaFileName && (
               <p className="mt-2 text-xs text-muted-foreground">Media: {mediaFileName}</p>
             )}

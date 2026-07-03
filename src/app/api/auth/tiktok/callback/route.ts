@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     const accessToken = tokens.access_token;
 
     let displayName = "TikTok Account";
+    let username = "tiktok";
     if (accessToken) {
       const userRes = await fetch(
         "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username",
@@ -47,16 +48,16 @@ export async function GET(request: NextRequest) {
       );
       if (userRes.ok) {
         const userData = await userRes.json();
-        displayName =
-          userData.data?.user?.display_name ??
-          userData.data?.user?.username ??
-          displayName;
+        const user = userData.data?.user;
+        username = user?.username ?? username;
+        displayName = user?.display_name ?? username ?? displayName;
       }
     }
 
     const params = new URLSearchParams({
       connected: "tiktok",
       name: displayName,
+      handle: `@${String(username).replace(/^@/, "")}`,
       sandbox: "false",
     });
 
