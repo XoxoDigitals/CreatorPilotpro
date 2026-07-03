@@ -32,21 +32,27 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenRes.json();
     const pagesRes = await fetch(
-      `https://graph.facebook.com/v21.0/me/accounts?fields=name,username,id&access_token=${tokens.access_token}`
+      `https://graph.facebook.com/v21.0/me/accounts?fields=name,username,id,access_token&access_token=${tokens.access_token}`
     );
 
     let pageName = "Facebook Page";
     let pageHandle = "facebook";
     let pageId: string | undefined;
+    let pageAccessToken: string | undefined;
     if (pagesRes.ok) {
       const data = await pagesRes.json();
       const page = data.data?.[0];
       pageName = page?.name ?? pageName;
       pageId = page?.id;
+      pageAccessToken = page?.access_token;
       const username = page?.username ?? page?.id;
       pageHandle = username
         ? `@${String(username).replace(/^@/, "")}`
         : `@${pageName.replace(/\s+/g, "").toLowerCase()}`;
+    }
+
+    if (!pageId || !pageAccessToken) {
+      return NextResponse.redirect(`${base}?error=facebook_no_page_found`);
     }
 
     const params = new URLSearchParams({
@@ -58,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     const response = NextResponse.redirect(`${base}?${params.toString()}`);
     savePlatformAuth(response, "facebook", {
-      accessToken: tokens.access_token,
+      accessToken: pageAccessToken,
       handle: pageHandle,
       name: pageName,
       pageId,

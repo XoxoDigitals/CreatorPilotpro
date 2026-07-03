@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
           <h2 className="text-sm font-semibold">Confirmed live posts</h2>
           {postsWithLinks.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">
-              No confirmed platform links yet. Use <strong>Post now</strong> with a connected YouTube account and a video file.
+              No confirmed platform links yet. Use <strong>Post now</strong> with a connected YouTube, TikTok, or Facebook account and a video file.
             </p>
           ) : (
             <ul className="mt-4 space-y-3">

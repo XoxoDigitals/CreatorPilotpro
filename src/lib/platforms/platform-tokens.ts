@@ -99,3 +99,63 @@ export async function getYouTubeAccessToken(
 
   return { token: auth.accessToken, auth };
 }
+
+async function refreshTikTokAccessToken(
+  request: NextRequest,
+  auth: StoredPlatformAuth
+): Promise<StoredPlatformAuth | null> {
+  if (!auth.refreshToken) return null;
+
+  const creds = resolvePlatformCredentials(request, "tiktok");
+  if (!creds) return null;
+
+  const res = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_key: creds.clientId,
+      client_secret: creds.clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: auth.refreshToken,
+    }),
+  });
+
+  if (!res.ok) return null;
+
+  const tokens = await res.json();
+  return {
+    ...auth,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token ?? auth.refreshToken,
+    expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+  };
+}
+
+export async function getTikTokAccessToken(
+  request: NextRequest
+): Promise<{ token: string; auth: StoredPlatformAuth } | null> {
+  let auth = getPlatformAuth(request, "tiktok");
+  if (!auth) return null;
+
+  const expired = auth.expiresAt ? Date.now() >= auth.expiresAt - 60_000 : false;
+  if (expired) {
+    const refreshed = await refreshTikTokAccessToken(request, auth);
+    if (!refreshed) return null;
+    auth = refreshed;
+  }
+
+  return { token: auth.accessToken, auth };
+}
+
+export async function getFacebookPageAuth(
+  request: NextRequest
+): Promise<{ pageId: string; pageAccessToken: string; auth: StoredPlatformAuth } | null> {
+  const auth = getPlatformAuth(request, "facebook");
+  if (!auth?.pageId || !auth.accessToken) return null;
+
+  return {
+    pageId: auth.pageId,
+    pageAccessToken: auth.accessToken,
+    auth,
+  };
+}

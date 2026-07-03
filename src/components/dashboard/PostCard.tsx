@@ -90,6 +90,11 @@ export function PostCard({
               YouTube: {(post.youtube.videoType ?? "short") === "short" ? "Short" : "Long-form"}
             </p>
           )}
+          {post.publishResults?.some((r) => r.success && r.platform === "tiktok" && !r.externalUrl) && (
+            <p className="mt-1 text-xs text-[var(--color-success)]">
+              TikTok: published (check your TikTok profile)
+            </p>
+          )}
           {post.errorMessage && (
             <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
