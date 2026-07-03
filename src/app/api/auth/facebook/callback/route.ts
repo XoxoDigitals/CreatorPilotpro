@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/platforms/config";
 import { resolvePlatformCredentials } from "@/lib/platforms/credentials";
+import { savePlatformAuth } from "@/lib/platforms/platform-tokens";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -36,10 +37,12 @@ export async function GET(request: NextRequest) {
 
     let pageName = "Facebook Page";
     let pageHandle = "facebook";
+    let pageId: string | undefined;
     if (pagesRes.ok) {
       const data = await pagesRes.json();
       const page = data.data?.[0];
       pageName = page?.name ?? pageName;
+      pageId = page?.id;
       const username = page?.username ?? page?.id;
       pageHandle = username
         ? `@${String(username).replace(/^@/, "")}`
@@ -53,7 +56,14 @@ export async function GET(request: NextRequest) {
       sandbox: "false",
     });
 
-    return NextResponse.redirect(`${base}?${params.toString()}`);
+    const response = NextResponse.redirect(`${base}?${params.toString()}`);
+    savePlatformAuth(response, "facebook", {
+      accessToken: tokens.access_token,
+      handle: pageHandle,
+      name: pageName,
+      pageId,
+    });
+    return response;
   } catch {
     return NextResponse.redirect(`${base}?error=facebook_auth_error`);
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/platforms/config";
 import { resolvePlatformCredentials } from "@/lib/platforms/credentials";
+import { savePlatformAuth } from "@/lib/platforms/platform-tokens";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -54,15 +55,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const handle = `@${String(username).replace(/^@/, "")}`;
     const params = new URLSearchParams({
       connected: "tiktok",
       name: displayName,
-      handle: `@${String(username).replace(/^@/, "")}`,
+      handle,
       sandbox: "false",
     });
 
     const response = NextResponse.redirect(`${base}?${params.toString()}`);
     response.cookies.delete("tiktok_oauth_state");
+    savePlatformAuth(response, "tiktok", {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+      handle,
+      name: displayName,
+    });
     return response;
   } catch {
     return NextResponse.redirect(`${base}?error=tiktok_auth_error`);

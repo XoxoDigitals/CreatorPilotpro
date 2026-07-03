@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Film, Trash2, Send, Loader2 } from "lucide-react";
+import { Calendar, Film, Trash2, Send, Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import type { ScheduledPost } from "@/lib/types";
 import { postDisplayTitle } from "@/lib/platform-post-fields";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
@@ -90,6 +90,25 @@ export function PostCard({
               YouTube: {(post.youtube.videoType ?? "short") === "short" ? "Short" : "Long-form"}
             </p>
           )}
+          {post.errorMessage && (
+            <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {post.errorMessage}
+            </p>
+          )}
+          {(post.publishResults ?? [])
+            .filter((r) => r.success && r.externalUrl)
+            .map((r) => (
+              <a
+                key={r.platform}
+                href={r.externalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:opacity-90"
+              >
+                View on {r.platform} <ExternalLink className="h-3 w-3" />
+              </a>
+            ))}
           {post.tiktok?.hashtags && post.tiktok.hashtags.length > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
               TT: {post.tiktok.hashtags.map((h) => `#${h}`).join(" ")}

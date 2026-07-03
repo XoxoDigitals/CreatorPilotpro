@@ -38,11 +38,14 @@ export default function PostsClient() {
       } else {
         await addPost(post);
       }
-      if (postNow) {
-        setPublishingId(post.id);
-        await publishPostNow(post.id);
-        setPublishingId(null);
+    if (postNow) {
+      setPublishingId(post.id);
+      const result = await publishPostNow(post.id);
+      setPublishingId(null);
+      if (!result.ok) {
+        alert(result.error ?? "Publish failed. Check Channels OAuth and upload a video file.");
       }
+    }
       setShowComposer(false);
       refresh();
     } catch (error) {
@@ -56,9 +59,12 @@ export default function PostsClient() {
 
   async function handlePostNow(id: string) {
     setPublishingId(id);
-    await publishPostNow(id);
+    const result = await publishPostNow(id);
     setPublishingId(null);
     refresh();
+    if (!result.ok) {
+      alert(result.error ?? "Publish failed.");
+    }
   }
 
   async function handleDelete(id: string) {

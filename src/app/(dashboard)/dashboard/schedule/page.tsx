@@ -62,7 +62,7 @@ export default function SchedulePage() {
     setPublishingId(null);
     setQueue(refreshQueue());
     if (result.ok) {
-      setPublishMessage("Post published successfully.");
+      setPublishMessage("Video uploaded to platform successfully. Check Insights for the live link.");
     } else {
       setPublishMessage(result.error ?? "Could not publish post.");
     }

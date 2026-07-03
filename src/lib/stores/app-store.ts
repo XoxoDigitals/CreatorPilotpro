@@ -13,6 +13,7 @@ import {
   deletePostMedia,
   migrateLegacyPostMedia,
 } from "../post-media";
+import { publishPostToPlatforms } from "../publish-client";
 import type {
   ConnectedAccount,
   DashboardStats,
@@ -165,31 +166,45 @@ export async function deletePost(id: string): Promise<void> {
   );
 }
 
-export async function publishPostNow(id: string): Promise<{ ok: boolean; error?: string }> {
+export async function publishPostNow(id: string): Promise<{
+  ok: boolean;
+  error?: string;
+  partial?: boolean;
+}> {
   const post = getPosts().find((p) => p.id === id);
   if (!post) return { ok: false, error: "Post not found" };
-  if (post.status === "published") return { ok: false, error: "Already published" };
+  if (post.status === "published" && post.publishResults?.some((r) => r.success)) {
+    return { ok: false, error: "Already published to a platform." };
+  }
   if (post.status === "publishing") return { ok: false, error: "Already publishing" };
 
-  updatePost(id, { status: "publishing" });
+  await updatePost(id, { status: "publishing", errorMessage: undefined });
 
-  try {
-    await fetch("/api/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "publish", post: getPosts().find((p) => p.id === id) }),
-    });
-    const now = new Date().toISOString();
+  const result = await publishPostToPlatforms(post);
+  const now = new Date().toISOString();
+
+  if (result.ok) {
     await updatePost(id, {
       status: "published",
       publishedAt: now,
       scheduledAt: now,
+      publishResults: result.results,
+      errorMessage: undefined,
     });
     return { ok: true };
-  } catch {
-    await updatePost(id, { status: "failed" });
-    return { ok: false, error: "Publish failed" };
   }
+
+  await updatePost(id, {
+    status: "failed",
+    publishResults: result.results,
+    errorMessage: result.error ?? "Publish failed on all selected platforms.",
+  });
+
+  return {
+    ok: false,
+    partial: result.partial,
+    error: result.error ?? "Publish failed.",
+  };
 }
 
 export { migrateLegacyPostMedia };

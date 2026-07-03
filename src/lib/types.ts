@@ -72,6 +72,13 @@ export interface ScheduledPost {
   createdAt: string;
   publishedAt?: string;
   errorMessage?: string;
+  publishResults?: {
+    platform: Platform;
+    success: boolean;
+    externalId?: string;
+    externalUrl?: string;
+    error?: string;
+  }[];
 }
 
 export interface ScheduleConfig {
@@ -101,15 +108,11 @@ export interface DashboardStats {
 
 export interface PlatformAnalytics {
   platform: Platform;
-  views: number;
-  likes: number;
-  comments: number;
-  shares: number;
-  engagementRate: number;
   postsPublished: number;
   postsScheduled: number;
   postsFailed: number;
-  viewsChangePct: number;
+  postsDraft: number;
+  liveOnPlatform: number;
 }
 
 export const WEEKDAYS = [

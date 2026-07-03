@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/platforms/config";
 import { resolvePlatformCredentials } from "@/lib/platforms/credentials";
+import { savePlatformAuth } from "@/lib/platforms/platform-tokens";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -58,7 +59,15 @@ export async function GET(request: NextRequest) {
       sandbox: "false",
     });
 
-    return NextResponse.redirect(`${base}?${params.toString()}`);
+    const response = NextResponse.redirect(`${base}?${params.toString()}`);
+    savePlatformAuth(response, "youtube", {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+      handle: channelHandle,
+      name: channelName,
+    });
+    return response;
   } catch {
     return NextResponse.redirect(`${base}?error=youtube_auth_error`);
   }

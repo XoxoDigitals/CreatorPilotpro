@@ -1,84 +1,68 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Heart, MessageCircle, Share2, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { Calendar, CheckCircle2, FileVideo, AlertCircle, ExternalLink } from "lucide-react";
 import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { cardClass } from "@/lib/form-styles";
 import { getPosts } from "@/lib/stores/app-store";
-import {
-  formatCompact,
-  getPlatformAnalytics,
-  getTotalAnalytics,
-  getViewsTrend,
-} from "@/lib/analytics-data";
+import { getPlatformAnalytics, getTotalActivity } from "@/lib/analytics-data";
 import type { PlatformAnalytics } from "@/lib/types";
 
 export default function AnalyticsPage() {
   const [metrics, setMetrics] = useState<PlatformAnalytics[]>([]);
-  const [trend, setTrend] = useState<{ label: string; value: number }[]>([]);
 
   useEffect(() => {
-    const posts = getPosts();
-    setMetrics(getPlatformAnalytics(posts));
-    setTrend(getViewsTrend(posts));
+    setMetrics(getPlatformAnalytics(getPosts()));
   }, []);
 
-  const totals = getTotalAnalytics(metrics);
-  const maxTrend = Math.max(...trend.map((t) => t.value), 1);
+  const totals = getTotalActivity(metrics);
+  const postsWithLinks = getPosts().flatMap((post) =>
+    (post.publishResults ?? [])
+      .filter((r) => r.success && r.externalUrl)
+      .map((r) => ({
+        postTitle: post.title,
+        platform: r.platform,
+        url: r.externalUrl!,
+      }))
+  );
 
   return (
     <>
       <DashboardTopBar
         title="Insights"
-        subtitle="Performance across your connected platforms"
+        subtitle="Real publishing activity from your dashboard"
       />
       <div className="mx-auto max-w-6xl space-y-8 p-4 lg:p-8">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total views" value={formatCompact(totals.views)} icon={Eye} />
-          <StatCard label="Likes" value={formatCompact(totals.likes)} icon={Heart} />
-          <StatCard label="Comments" value={formatCompact(totals.comments)} icon={MessageCircle} />
-          <StatCard label="Shares" value={formatCompact(totals.shares)} icon={Share2} />
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+          <p className="font-semibold text-amber-800 dark:text-amber-200">
+            View counts, likes, and comments are not available yet
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            This page shows only what Creator Pilot Pro actually did — scheduled posts, failed uploads,
+            and confirmed live links on YouTube/TikTok/Facebook. Platform analytics APIs will be added next.
+          </p>
         </div>
 
-        <section className={cardClass}>
-          <h2 className="text-sm font-semibold">Views this week</h2>
-          <div className="mt-6 flex items-end justify-between gap-2" style={{ height: 160 }}>
-            {trend.map((point) => (
-              <div key={point.label} className="flex flex-1 flex-col items-center gap-2">
-                <div
-                  className="w-full max-w-[48px] rounded-t-lg bg-primary/80 transition-all"
-                  style={{ height: `${(point.value / maxTrend) * 120}px` }}
-                  title={`${point.value.toLocaleString()} views`}
-                />
-                <span className="text-[10px] text-muted-foreground">{point.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="Live on platforms" value={totals.live} icon={CheckCircle2} hint="Confirmed upload links" />
+          <StatCard label="Marked published" value={totals.published} icon={FileVideo} hint="In your dashboard" />
+          <StatCard label="Scheduled" value={totals.scheduled} icon={Calendar} hint="Waiting to publish" />
+          <StatCard label="Failed" value={totals.failed} icon={AlertCircle} hint="Upload errors" />
+        </div>
 
         <div>
           <h2 className="mb-4 text-sm font-semibold">By platform</h2>
           <div className="grid gap-4 lg:grid-cols-3">
             {metrics.map((m) => (
               <article key={m.platform} className={cardClass}>
-                <div className="flex items-center justify-between">
-                  <PlatformIcon platform={m.platform} />
-                  <span className="flex items-center gap-1 text-xs font-medium text-[var(--color-success)]">
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    +{m.viewsChangePct}%
-                  </span>
-                </div>
-
+                <PlatformIcon platform={m.platform} />
                 <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <dt className="text-xs text-muted-foreground">Views</dt>
-                    <dd className="font-semibold">{formatCompact(m.views)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">Engagement</dt>
-                    <dd className="font-semibold">{m.engagementRate}%</dd>
+                    <dt className="text-xs text-muted-foreground">Live links</dt>
+                    <dd className="font-semibold">{m.liveOnPlatform}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">Published</dt>
@@ -88,29 +72,50 @@ export default function AnalyticsPage() {
                     <dt className="text-xs text-muted-foreground">Scheduled</dt>
                     <dd className="font-semibold">{m.postsScheduled}</dd>
                   </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Failed</dt>
+                    <dd className="font-semibold">{m.postsFailed}</dd>
+                  </div>
                 </dl>
-
-                <div className="mt-4 space-y-2 border-t border-border pt-4 text-xs text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>Likes</span>
-                    <span className="font-medium text-foreground">{formatCompact(m.likes)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Comments</span>
-                    <span className="font-medium text-foreground">{formatCompact(m.comments)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Shares</span>
-                    <span className="font-medium text-foreground">{formatCompact(m.shares)}</span>
-                  </div>
-                </div>
               </article>
             ))}
           </div>
         </div>
 
+        <section className={cardClass}>
+          <h2 className="text-sm font-semibold">Confirmed live posts</h2>
+          {postsWithLinks.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No confirmed platform links yet. Use <strong>Post now</strong> with a connected YouTube account and a video file.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {postsWithLinks.map((item, i) => (
+                <li key={`${item.url}-${i}`} className="flex items-center justify-between gap-4 rounded-xl border border-border p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{item.postTitle}</p>
+                    <p className="text-xs capitalize text-muted-foreground">{item.platform}</p>
+                  </div>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 text-sm text-primary hover:opacity-90"
+                  >
+                    View <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <p className="text-center text-xs text-muted-foreground">
-          Metrics appear after you publish posts. Connect live APIs for real-time platform data.
+          Need YouTube views and engagement?{" "}
+          <Link href="/dashboard/settings" className="text-primary underline">
+            Ensure API keys and OAuth are connected
+          </Link>
+          , then publish a video with Post now.
         </p>
       </div>
     </>
