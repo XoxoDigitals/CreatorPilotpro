@@ -1,49 +1,73 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Film, ImageIcon, Upload, X } from "lucide-react";
 import type { MediaType } from "@/lib/types";
 import { btnSecondary } from "@/lib/form-styles";
+import { generateMediaId, putMedia } from "@/lib/media-storage";
 
 interface MediaUploadProps {
   mediaType?: MediaType;
+  mediaId?: string;
   mediaUrl?: string;
   mediaFileName?: string;
   onChange: (data: {
     mediaType?: MediaType;
+    mediaId?: string;
     mediaUrl?: string;
     mediaFileName?: string;
   }) => void;
 }
 
-const MAX_MB = 50;
+/** IndexedDB handles large files; keep a sensible browser upload cap. */
+const MAX_MB = 200;
 
-export function MediaUpload({ mediaType, mediaUrl, mediaFileName, onChange }: MediaUploadProps) {
+export function MediaUpload({
+  mediaType,
+  mediaId,
+  mediaUrl,
+  mediaFileName,
+  onChange,
+}: MediaUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
-  function handleFile(file: File | null) {
+  async function handleFile(file: File | null) {
     if (!file) return;
     if (file.size > MAX_MB * 1024 * 1024) {
-      alert(`File is too large. Max ${MAX_MB}MB for demo storage.`);
+      alert(`File is too large. Max ${MAX_MB}MB.`);
       return;
     }
 
-    const type: MediaType = file.type.startsWith("video/") ? "video" : "image";
-    const reader = new FileReader();
-    reader.onload = () => {
+    setUploading(true);
+    try {
+      const type: MediaType = file.type.startsWith("video/") ? "video" : "image";
+      const id = generateMediaId("media");
+      await putMedia(id, file);
       onChange({
         mediaType: type,
-        mediaUrl: reader.result as string,
+        mediaId: id,
+        mediaUrl: URL.createObjectURL(file),
         mediaFileName: file.name,
       });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      alert("Could not store this file. Try a smaller video or remove old posts.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function clear() {
-    onChange({ mediaType: undefined, mediaUrl: undefined, mediaFileName: undefined });
+    onChange({
+      mediaType: undefined,
+      mediaId: undefined,
+      mediaUrl: undefined,
+      mediaFileName: undefined,
+    });
     if (inputRef.current) inputRef.current.value = "";
   }
+
+  const previewUrl = mediaUrl;
 
   return (
     <div className="space-y-3">
@@ -52,31 +76,38 @@ export function MediaUpload({ mediaType, mediaUrl, mediaFileName, onChange }: Me
         type="file"
         accept="video/*,image/*"
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
       />
 
-      {!mediaUrl ? (
+      {!previewUrl && !mediaId ? (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 px-6 py-10 transition hover:border-primary/40 hover:bg-muted/50"
+          disabled={uploading}
+          className="flex w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/30 px-6 py-10 transition hover:border-primary/40 hover:bg-muted/50 disabled:opacity-60"
         >
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Upload className="h-5 w-5" />
           </span>
           <div className="text-center">
-            <p className="text-sm font-semibold">Upload video or image</p>
+            <p className="text-sm font-semibold">
+              {uploading ? "Saving file…" : "Upload video or image"}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              MP4, MOV, JPG, PNG — up to {MAX_MB}MB
+              MP4, MOV, JPG, PNG — up to {MAX_MB}MB (stored in browser, not localStorage)
             </p>
           </div>
         </button>
       ) : (
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-          {mediaType === "video" ? (
-            <video src={mediaUrl} controls className="aspect-video w-full object-cover" />
+          {previewUrl && mediaType === "video" ? (
+            <video src={previewUrl} controls className="aspect-video w-full object-cover" />
+          ) : previewUrl ? (
+            <img src={previewUrl} alt="Upload preview" className="aspect-video w-full object-cover" />
           ) : (
-            <img src={mediaUrl} alt="Upload preview" className="aspect-video w-full object-cover" />
+            <div className="flex aspect-video items-center justify-center bg-muted/30 text-sm text-muted-foreground">
+              Loading preview…
+            </div>
           )}
           <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <span className="flex items-center gap-2 text-xs text-muted-foreground">

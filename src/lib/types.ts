@@ -16,6 +16,7 @@ export interface YouTubePostContent {
   description: string;
   tags: string[];
   thumbnailUrl?: string;
+  thumbnailMediaId?: string;
   category: string;
   visibility: "public" | "unlisted" | "private";
   madeForKids: boolean;
@@ -35,6 +36,7 @@ export interface FacebookPostContent {
   message: string;
   description: string;
   thumbnailUrl?: string;
+  thumbnailMediaId?: string;
   callToAction: "NONE" | "LEARN_MORE" | "SHOP_NOW" | "SIGN_UP" | "WATCH_MORE";
 }
 
@@ -57,6 +59,7 @@ export interface ScheduledPost {
   scheduledAt: string;
   status: PostStatus;
   mediaType?: MediaType;
+  mediaId?: string;
   mediaUrl?: string;
   mediaFileName?: string;
   tags?: string[];

@@ -15,7 +15,19 @@ export function readStorage<T>(key: string, fallback: T): T {
 
 export function writeStorage<T>(key: string, value: T): void {
   if (!isBrowser) return;
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      (error.name === "QuotaExceededError" || error.code === 22)
+    ) {
+      throw new Error(
+        "Storage is full. Large media files are saved separately — try refreshing the page or removing old posts."
+      );
+    }
+    throw error;
+  }
 }
 
 export function removeStorage(key: string): void {

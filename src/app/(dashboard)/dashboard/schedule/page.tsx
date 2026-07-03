@@ -114,10 +114,13 @@ export default function SchedulePage() {
                 <div key={post.id} className="relative">
                   <PostCard
                     post={post}
-                    onDelete={(id) => {
-                      if (confirm("Delete this post?")) {
-                        deletePost(id);
+                    onDelete={async (id) => {
+                      if (!confirm("Delete this post?")) return;
+                      try {
+                        await deletePost(id);
                         setQueue(refreshQueue());
+                      } catch (error) {
+                        alert(error instanceof Error ? error.message : "Could not delete post.");
                       }
                     }}
                     onPublish={handlePostNow}

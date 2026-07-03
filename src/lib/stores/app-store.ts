@@ -7,6 +7,12 @@ import {
   STORAGE_KEYS,
   DATA_STORE_VERSION,
 } from "../storage";
+import {
+  compactPostForStorage,
+  compactPostsForStorage,
+  deletePostMedia,
+  migrateLegacyPostMedia,
+} from "../post-media";
 import type {
   ConnectedAccount,
   DashboardStats,
@@ -89,20 +95,27 @@ export function getPosts(): ScheduledPost[] {
   return readStorage<ScheduledPost[]>(STORAGE_KEYS.posts, []);
 }
 
-export function savePosts(posts: ScheduledPost[]): void {
-  writeStorage(STORAGE_KEYS.posts, posts);
+export async function savePosts(posts: ScheduledPost[]): Promise<void> {
+  writeStorage(STORAGE_KEYS.posts, await compactPostsForStorage(posts));
 }
 
-export function addPost(post: ScheduledPost): void {
-  savePosts([post, ...getPosts()]);
+export async function addPost(post: ScheduledPost): Promise<void> {
+  const compact = await compactPostForStorage(post);
+  writeStorage(STORAGE_KEYS.posts, [compact, ...getPosts()]);
 }
 
-export function updatePost(id: string, patch: Partial<ScheduledPost>): void {
-  savePosts(getPosts().map((p) => (p.id === id ? { ...p, ...patch } : p)));
+export async function updatePost(id: string, patch: Partial<ScheduledPost>): Promise<void> {
+  const posts = getPosts().map((p) => (p.id === id ? { ...p, ...patch } : p));
+  await savePosts(posts);
 }
 
-export function deletePost(id: string): void {
-  savePosts(getPosts().filter((p) => p.id !== id));
+export async function deletePost(id: string): Promise<void> {
+  const post = getPosts().find((p) => p.id === id);
+  await deletePostMedia(post);
+  writeStorage(
+    STORAGE_KEYS.posts,
+    getPosts().filter((p) => p.id !== id)
+  );
 }
 
 export async function publishPostNow(id: string): Promise<{ ok: boolean; error?: string }> {
@@ -117,20 +130,22 @@ export async function publishPostNow(id: string): Promise<{ ok: boolean; error?:
     await fetch("/api/posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "publish", post }),
+      body: JSON.stringify({ action: "publish", post: getPosts().find((p) => p.id === id) }),
     });
     const now = new Date().toISOString();
-    updatePost(id, {
+    await updatePost(id, {
       status: "published",
       publishedAt: now,
       scheduledAt: now,
     });
     return { ok: true };
   } catch {
-    updatePost(id, { status: "failed" });
+    await updatePost(id, { status: "failed" });
     return { ok: false, error: "Publish failed" };
   }
 }
+
+export { migrateLegacyPostMedia };
 
 export function getScheduleConfig(): ScheduleConfig {
   return readStorage(STORAGE_KEYS.schedule, DEFAULT_SCHEDULE);

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
-import { migrateToCleanStore } from "@/lib/stores/app-store";
+import { migrateToCleanStore, migrateLegacyPostMedia } from "@/lib/stores/app-store";
 
 interface DashboardLayoutContextValue {
   openMenu: () => void;
@@ -21,6 +21,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     migrateToCleanStore();
+    void migrateLegacyPostMedia().catch(() => {
+      /* legacy migration best-effort */
+    });
   }, []);
 
   return (

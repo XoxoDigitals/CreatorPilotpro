@@ -5,6 +5,7 @@ import type { ScheduledPost } from "@/lib/types";
 import { postDisplayTitle } from "@/lib/platform-post-fields";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { cardClass, btnPrimary } from "@/lib/form-styles";
+import { useMediaObjectUrl } from "@/hooks/useMediaObjectUrl";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -29,6 +30,7 @@ export function PostCard({
   publishLabel = "Post now",
   publishing = false,
 }: PostCardProps) {
+  const previewUrl = useMediaObjectUrl(post.mediaId, post.mediaUrl);
   const title = postDisplayTitle(
     post.platforms,
     post.youtube,
@@ -40,13 +42,17 @@ export function PostCard({
   return (
     <article className={cardClass}>
       <div className="flex gap-4">
-        {post.mediaUrl ? (
+        {previewUrl ? (
           <div className="hidden h-20 w-32 shrink-0 overflow-hidden rounded-xl border border-border sm:block">
             {post.mediaType === "video" ? (
-              <video src={post.mediaUrl} className="h-full w-full object-cover" muted />
+              <video src={previewUrl} className="h-full w-full object-cover" muted />
             ) : (
-              <img src={post.mediaUrl} alt="" className="h-full w-full object-cover" />
+              <img src={previewUrl} alt="" className="h-full w-full object-cover" />
             )}
+          </div>
+        ) : post.mediaId ? (
+          <div className="hidden h-20 w-32 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/30 sm:flex">
+            <Film className="h-5 w-5 animate-pulse text-muted-foreground" />
           </div>
         ) : (
           <div className="hidden h-20 w-32 shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 sm:flex">

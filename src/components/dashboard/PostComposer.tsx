@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Calendar,
   Save,
@@ -25,6 +25,7 @@ import {
   YOUTUBE_CATEGORIES,
 } from "@/lib/platform-post-fields";
 import { getAccounts, generateId } from "@/lib/stores/app-store";
+import { resolveMediaObjectUrl } from "@/lib/media-storage";
 import { MediaUpload } from "@/components/dashboard/MediaUpload";
 import { ThumbnailUpload } from "@/components/dashboard/ThumbnailUpload";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
@@ -50,7 +51,8 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
   const [status, setStatus] = useState<PostStatus>(initial?.status ?? "scheduled");
   const [publishTiming, setPublishTiming] = useState<"schedule" | "now">("schedule");
   const [mediaType, setMediaType] = useState(initial?.mediaType);
-  const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl);
+  const [mediaId, setMediaId] = useState(initial?.mediaId);
+  const [mediaUrl, setMediaUrl] = useState<string | undefined>(initial?.mediaUrl);
   const [mediaFileName, setMediaFileName] = useState(initial?.mediaFileName);
   const [youtube, setYoutube] = useState<YouTubePostContent>(
     initial?.youtube ?? defaultYouTubeContent()
@@ -61,6 +63,42 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
   const [facebook, setFacebook] = useState<FacebookPostContent>(
     initial?.facebook ?? defaultFacebookContent()
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const urls: string[] = [];
+
+    async function loadPreviews() {
+      if (initial?.mediaId && !initial.mediaUrl) {
+        const url = await resolveMediaObjectUrl(initial.mediaId);
+        if (url && !cancelled) {
+          urls.push(url);
+          setMediaUrl(url);
+        }
+      }
+      if (initial?.youtube?.thumbnailMediaId && !initial.youtube.thumbnailUrl) {
+        const url = await resolveMediaObjectUrl(initial.youtube.thumbnailMediaId);
+        if (url && !cancelled) {
+          urls.push(url);
+          setYoutube((yt) => ({ ...yt, thumbnailUrl: url }));
+        }
+      }
+      if (initial?.facebook?.thumbnailMediaId && !initial.facebook.thumbnailUrl) {
+        const url = await resolveMediaObjectUrl(initial.facebook.thumbnailMediaId);
+        if (url && !cancelled) {
+          urls.push(url);
+          setFacebook((fb) => ({ ...fb, thumbnailUrl: url }));
+        }
+      }
+    }
+
+    void loadPreviews();
+
+    return () => {
+      cancelled = true;
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [initial]);
 
   function togglePlatform(p: Platform) {
     setPlatforms((prev) => {
@@ -92,11 +130,15 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
           : now,
       status: asDraft ? "draft" : postNow ? "scheduled" : status,
       mediaType,
-      mediaUrl,
+      mediaId,
       mediaFileName,
-      youtube: platforms.includes("youtube") ? youtube : undefined,
+      youtube: platforms.includes("youtube")
+        ? { ...youtube, thumbnailUrl: undefined }
+        : undefined,
       tiktok: platforms.includes("tiktok") ? tiktok : undefined,
-      facebook: platforms.includes("facebook") ? facebook : undefined,
+      facebook: platforms.includes("facebook")
+        ? { ...facebook, thumbnailUrl: undefined }
+        : undefined,
       createdAt: initial?.createdAt ?? now,
     };
 
@@ -148,10 +190,12 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
             <div className="mt-2">
               <MediaUpload
                 mediaType={mediaType}
+                mediaId={mediaId}
                 mediaUrl={mediaUrl}
                 mediaFileName={mediaFileName}
-                onChange={({ mediaType: t, mediaUrl: u, mediaFileName: f }) => {
+                onChange={({ mediaType: t, mediaId: id, mediaUrl: u, mediaFileName: f }) => {
                   setMediaType(t);
+                  setMediaId(id);
                   setMediaUrl(u);
                   setMediaFileName(f);
                 }}
@@ -221,8 +265,14 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
                   </select>
                 </div>
               </div>
-              <ThumbnailUpload label="Custom thumbnail" value={youtube.thumbnailUrl}
-                onChange={(url) => setYoutube({ ...youtube, thumbnailUrl: url })} />
+              <ThumbnailUpload
+                label="Custom thumbnail"
+                value={youtube.thumbnailUrl}
+                mediaId={youtube.thumbnailMediaId}
+                onChange={({ url, mediaId: id }) =>
+                  setYoutube({ ...youtube, thumbnailUrl: url, thumbnailMediaId: id })
+                }
+              />
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={youtube.madeForKids}
                   onChange={(e) => setYoutube({ ...youtube, madeForKids: e.target.checked })} />
@@ -294,8 +344,14 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
                   {FACEBOOK_CTA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
-              <ThumbnailUpload label="Video thumbnail" value={facebook.thumbnailUrl}
-                onChange={(url) => setFacebook({ ...facebook, thumbnailUrl: url })} />
+              <ThumbnailUpload
+                label="Video thumbnail"
+                value={facebook.thumbnailUrl}
+                mediaId={facebook.thumbnailMediaId}
+                onChange={({ url, mediaId: id }) =>
+                  setFacebook({ ...facebook, thumbnailUrl: url, thumbnailMediaId: id })
+                }
+              />
             </div>
           )}
 

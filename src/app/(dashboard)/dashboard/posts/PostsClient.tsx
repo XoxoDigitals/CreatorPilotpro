@@ -9,7 +9,7 @@ import {
   addPost,
   deletePost,
   getPosts,
-  updatePost,
+  savePosts,
   publishPostNow,
 } from "@/lib/stores/app-store";
 import type { ScheduledPost } from "@/lib/types";
@@ -31,19 +31,27 @@ export default function PostsClient() {
   }
 
   async function handleSave(post: ScheduledPost, postNow?: boolean) {
-    const existing = getPosts().find((p) => p.id === post.id);
-    if (existing) {
-      updatePost(post.id, post);
-    } else {
-      addPost(post);
+    try {
+      const existing = getPosts().find((p) => p.id === post.id);
+      if (existing) {
+        await savePosts(getPosts().map((p) => (p.id === post.id ? post : p)));
+      } else {
+        await addPost(post);
+      }
+      if (postNow) {
+        setPublishingId(post.id);
+        await publishPostNow(post.id);
+        setPublishingId(null);
+      }
+      setShowComposer(false);
+      refresh();
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not save this post. Try a smaller file or remove old posts."
+      );
     }
-    if (postNow) {
-      setPublishingId(post.id);
-      await publishPostNow(post.id);
-      setPublishingId(null);
-    }
-    setShowComposer(false);
-    refresh();
   }
 
   async function handlePostNow(id: string) {
@@ -51,6 +59,16 @@ export default function PostsClient() {
     await publishPostNow(id);
     setPublishingId(null);
     refresh();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this post?")) return;
+    try {
+      await deletePost(id);
+      refresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Could not delete post.");
+    }
   }
 
   const filtered = posts.filter((p) => filter === "all" || p.status === filter);
@@ -104,12 +122,7 @@ export default function PostsClient() {
                   <PostCard
                     key={post.id}
                     post={post}
-                    onDelete={(id) => {
-                      if (confirm("Delete this post?")) {
-                        deletePost(id);
-                        refresh();
-                      }
-                    }}
+                    onDelete={handleDelete}
                     onPublish={handlePostNow}
                     publishing={publishingId === post.id}
                   />
