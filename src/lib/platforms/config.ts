@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import type { Platform } from "@/lib/types";
 
 export interface PlatformConfig {
@@ -46,5 +47,25 @@ export function getPlatformConfigs(): PlatformConfig[] {
 }
 
 export function getAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (envUrl) return envUrl;
+  return "http://localhost:3000";
+}
+
+/** Prefer env URL; fall back to the incoming request host (needed on production). */
+export function getAppUrlFromRequest(request: NextRequest): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (envUrl) return envUrl;
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host =
+    forwardedHost?.split(",")[0]?.trim() || request.headers.get("host");
+  if (host) {
+    const proto =
+      request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+      (host.includes("localhost") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+
+  return getAppUrl();
 }

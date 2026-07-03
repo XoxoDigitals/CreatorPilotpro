@@ -95,8 +95,16 @@ export const API_SETUP_GUIDES: PlatformSetupGuide[] = [
         },
       },
       {
+        title: "Add Login Kit product",
+        body: "OAuth requires Login Kit (separate from Content Posting). In your app → Add products → Login Kit → Web. Register the redirect URI shown below under Login Kit settings — it must match exactly (HTTPS, no trailing slash, no query params).",
+        link: {
+          label: "Login Kit for Web",
+          href: "https://developers.tiktok.com/doc/login-kit-web",
+        },
+      },
+      {
         title: "Add Content Posting API product",
-        body: "In your app, add the Content Posting API. Request scopes: user.info.basic, video.upload, and video.publish.",
+        body: "Add the Content Posting API for video.upload and video.publish scopes. Request scopes: user.info.basic, video.upload, and video.publish.",
         link: {
           label: "Content Posting API docs",
           href: "https://developers.tiktok.com/doc/content-posting-api-get-started",
@@ -112,7 +120,7 @@ export const API_SETUP_GUIDES: PlatformSetupGuide[] = [
       },
       {
         title: "Paste keys in Settings",
-        body: "Save your Client Key and Client Secret in Settings → API keys, then connect TikTok on the Channels page.",
+        body: "Save your Client Key and Client Secret in Setup → API keys, click Save API keys, then connect TikTok on the Channels page. Keys must be saved before Connect — otherwise you will be sent back without seeing TikTok login.",
       },
     ],
   },

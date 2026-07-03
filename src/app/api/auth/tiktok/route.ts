@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAppUrl } from "@/lib/platforms/config";
+import { getAppUrlFromRequest } from "@/lib/platforms/config";
 import {
   isPlatformConfigured,
   resolvePlatformCredentials,
@@ -7,11 +7,12 @@ import {
 import crypto from "crypto";
 
 export async function GET(request: NextRequest) {
-  const redirectUri = `${getAppUrl()}/api/auth/tiktok/callback`;
+  const appUrl = getAppUrlFromRequest(request);
+  const redirectUri = `${appUrl}/api/auth/tiktok/callback`;
 
   if (!isPlatformConfigured(request, "tiktok")) {
     return NextResponse.redirect(
-      `${getAppUrl()}/dashboard/accounts?error=tiktok_not_configured`
+      `${appUrl}/dashboard/accounts?error=tiktok_not_configured`
     );
   }
 
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
     response_type: "code",
     scope: "user.info.basic,video.upload,video.publish",
     state: csrfState,
+    disable_auto_auth: "1",
   });
 
   const response = NextResponse.redirect(
