@@ -36,7 +36,7 @@ export default function DashboardPage() {
   return (
     <>
       <DashboardTopBar
-        title={`Hello, ${profile.name.split(" ")[0]}`}
+        title={profile.name ? `Hello, ${profile.name.split(" ")[0]}` : "Hello"}
         subtitle="Here's what's happening with your content"
         showCreate
       />
@@ -54,7 +54,7 @@ export default function DashboardPage() {
         {stats && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard label="Scheduled" value={stats.scheduledPosts} icon={Calendar} hint="Ready to publish" />
-            <StatCard label="Published" value={stats.publishedPosts} icon={TrendingUp} hint="Live on platforms" trend={{ value: 8, label: "this week" }} />
+            <StatCard label="Published" value={stats.publishedPosts} icon={TrendingUp} hint="Live on platforms" />
             <StatCard label="Drafts" value={stats.draftPosts} icon={FileVideo} hint="Work in progress" />
             <StatCard label="Channels" value={stats.connectedAccounts} icon={Link2} hint="Connected accounts" />
           </div>

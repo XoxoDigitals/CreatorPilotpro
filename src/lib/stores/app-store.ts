@@ -1,6 +1,12 @@
 "use client";
 
-import { readStorage, writeStorage, STORAGE_KEYS } from "../storage";
+import {
+  readStorage,
+  writeStorage,
+  removeStorage,
+  STORAGE_KEYS,
+  DATA_STORE_VERSION,
+} from "../storage";
 import type {
   ConnectedAccount,
   DashboardStats,
@@ -29,155 +35,41 @@ const DEFAULT_SCHEDULE: ScheduleConfig = {
 
 const DEFAULT_PROFILE: UserProfile = {
   id: "user-1",
-  name: "Alex Rivera",
-  email: "alex@example.com",
-  company: "Creator Studio",
+  name: "",
+  email: "",
 };
 
-const SEED_ACCOUNTS: ConnectedAccount[] = [
-  {
-    id: "acc-yt-1",
-    platform: "youtube",
-    name: "Alex Creates",
-    handle: "@alexcreates",
-    connectedAt: "2026-06-01T10:00:00Z",
-    sandbox: true,
-  },
-  {
-    id: "acc-tt-1",
-    platform: "tiktok",
-    name: "Alex Creates",
-    handle: "@alexcreates",
-    connectedAt: "2026-06-02T10:00:00Z",
-    sandbox: true,
-  },
-  {
-    id: "acc-fb-1",
-    platform: "facebook",
-    name: "Alex Creates Page",
-    handle: "AlexCreatesOfficial",
-    connectedAt: "2026-06-03T10:00:00Z",
-    sandbox: true,
-  },
-];
+const DEMO_PROFILE_EMAIL = "alex@example.com";
 
-const SEED_POSTS: ScheduledPost[] = [
-  {
-    id: "post-1",
-    title: "5 Tips for Growing on Short-Form Video",
-    description: "Quick tips every creator should know this week.",
-    platforms: ["youtube", "tiktok", "facebook"],
-    accountIds: ["acc-yt-1", "acc-tt-1", "acc-fb-1"],
-    scheduledAt: "2026-07-02T09:00:00Z",
-    status: "scheduled",
-    mediaType: "video",
-    tags: ["creator", "growth", "shorts"],
-    createdAt: "2026-06-28T14:00:00Z",
-    youtube: {
-      title: "5 Tips for Growing on Short-Form Video",
-      description: "Quick tips every creator should know this week.\n\n#shorts #creator",
-      tags: ["creator", "growth", "shorts", "youtube"],
-      category: "Education",
-      visibility: "public",
-      madeForKids: false,
-    },
-    tiktok: {
-      caption: "5 tips every creator needs this week 🚀",
-      hashtags: ["creator", "growth", "fyp"],
-      allowComments: true,
-      allowDuet: true,
-      allowStitch: true,
-      privacy: "public_to_everyone",
-    },
-    facebook: {
-      title: "5 Tips for Growing on Short-Form Video",
-      message: "Quick tips every creator should know this week.",
-      description: "Save this for your next content sprint.",
-      callToAction: "WATCH_MORE",
-    },
-  },
-  {
-    id: "post-2",
-    title: "Behind the Scenes: My Editing Workflow",
-    description: "How I edit 10 clips per week without burning out.",
-    platforms: ["youtube", "tiktok"],
-    accountIds: ["acc-yt-1", "acc-tt-1"],
-    scheduledAt: "2026-07-03T18:00:00Z",
-    status: "scheduled",
-    mediaType: "video",
-    tags: ["workflow", "editing"],
-    createdAt: "2026-06-29T10:00:00Z",
-    youtube: {
-      title: "Behind the Scenes: My Editing Workflow",
-      description: "How I edit 10 clips per week without burning out.",
-      tags: ["workflow", "editing", "shorts"],
-      category: "Howto & Style",
-      visibility: "public",
-      madeForKids: false,
-    },
-    tiktok: {
-      caption: "My editing workflow in 60 seconds ✂️",
-      hashtags: ["editing", "workflow", "creatortips"],
-      allowComments: true,
-      allowDuet: false,
-      allowStitch: true,
-      privacy: "public_to_everyone",
-    },
-  },
-  {
-    id: "post-3",
-    title: "Weekly Creator Roundup",
-    description: "Top trends and what to post next.",
-    platforms: ["facebook"],
-    accountIds: ["acc-fb-1"],
-    scheduledAt: "2026-06-25T12:00:00Z",
-    status: "published",
-    mediaType: "video",
-    tags: ["trends"],
-    createdAt: "2026-06-20T08:00:00Z",
-    publishedAt: "2026-06-25T12:00:00Z",
-    facebook: {
-      title: "Weekly Creator Roundup",
-      message: "Top trends and what to post next. What niche are you betting on?",
-      description: "Weekly trends for creators.",
-      callToAction: "LEARN_MORE",
-    },
-  },
-  {
-    id: "post-4",
-    title: "Draft: Product Launch Teaser",
-    description: "Coming soon announcement for new course.",
-    platforms: ["youtube"],
-    accountIds: ["acc-yt-1"],
-    scheduledAt: "2026-07-10T09:00:00Z",
-    status: "draft",
-    createdAt: "2026-06-30T16:00:00Z",
-    youtube: {
-      title: "Product Launch Teaser — Coming Soon",
-      description: "Something big is coming for creators. Stay tuned.",
-      tags: ["launch", "teaser"],
-      category: "People & Blogs",
-      visibility: "unlisted",
-      madeForKids: false,
-    },
-  },
-];
+/** Clears demo posts, accounts, and the default demo profile from localStorage. */
+export function migrateToCleanStore(): void {
+  if (typeof window === "undefined") return;
 
-function seedIfEmpty<T>(key: string, seed: T, read: () => T): T {
-  const current = read();
-  if (Array.isArray(current) && current.length === 0) {
-    writeStorage(key, seed);
-    return seed;
+  const version = localStorage.getItem(STORAGE_KEYS.dataVersion);
+  if (version === String(DATA_STORE_VERSION)) return;
+
+  removeStorage(STORAGE_KEYS.accounts);
+  removeStorage(STORAGE_KEYS.posts);
+
+  const profile = readStorage<UserProfile>(STORAGE_KEYS.profile, DEFAULT_PROFILE);
+  if (profile.email === DEMO_PROFILE_EMAIL && profile.name === "Alex Rivera") {
+    removeStorage(STORAGE_KEYS.profile);
   }
-  return current;
+
+  localStorage.setItem(STORAGE_KEYS.dataVersion, String(DATA_STORE_VERSION));
+}
+
+export function clearAllAppData(): void {
+  removeStorage(STORAGE_KEYS.accounts);
+  removeStorage(STORAGE_KEYS.posts);
+  removeStorage(STORAGE_KEYS.profile);
+  removeStorage(STORAGE_KEYS.schedule);
+  removeStorage(STORAGE_KEYS.auth);
+  localStorage.setItem(STORAGE_KEYS.dataVersion, String(DATA_STORE_VERSION));
 }
 
 export function getAccounts(): ConnectedAccount[] {
-  return seedIfEmpty(
-    STORAGE_KEYS.accounts,
-    SEED_ACCOUNTS,
-    () => readStorage<ConnectedAccount[]>(STORAGE_KEYS.accounts, [])
-  );
+  return readStorage<ConnectedAccount[]>(STORAGE_KEYS.accounts, []);
 }
 
 export function saveAccounts(accounts: ConnectedAccount[]): void {
@@ -194,11 +86,7 @@ export function removeAccount(id: string): void {
 }
 
 export function getPosts(): ScheduledPost[] {
-  return seedIfEmpty(
-    STORAGE_KEYS.posts,
-    SEED_POSTS,
-    () => readStorage<ScheduledPost[]>(STORAGE_KEYS.posts, [])
-  );
+  return readStorage<ScheduledPost[]>(STORAGE_KEYS.posts, []);
 }
 
 export function savePosts(posts: ScheduledPost[]): void {
@@ -215,6 +103,33 @@ export function updatePost(id: string, patch: Partial<ScheduledPost>): void {
 
 export function deletePost(id: string): void {
   savePosts(getPosts().filter((p) => p.id !== id));
+}
+
+export async function publishPostNow(id: string): Promise<{ ok: boolean; error?: string }> {
+  const post = getPosts().find((p) => p.id === id);
+  if (!post) return { ok: false, error: "Post not found" };
+  if (post.status === "published") return { ok: false, error: "Already published" };
+  if (post.status === "publishing") return { ok: false, error: "Already publishing" };
+
+  updatePost(id, { status: "publishing" });
+
+  try {
+    await fetch("/api/posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "publish", post }),
+    });
+    const now = new Date().toISOString();
+    updatePost(id, {
+      status: "published",
+      publishedAt: now,
+      scheduledAt: now,
+    });
+    return { ok: true };
+  } catch {
+    updatePost(id, { status: "failed" });
+    return { ok: false, error: "Publish failed" };
+  }
 }
 
 export function getScheduleConfig(): ScheduleConfig {

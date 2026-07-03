@@ -10,6 +10,7 @@ import {
   deletePost,
   getPosts,
   updatePost,
+  publishPostNow,
 } from "@/lib/stores/app-store";
 import type { ScheduledPost } from "@/lib/types";
 
@@ -18,6 +19,7 @@ export default function PostsClient() {
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [showComposer, setShowComposer] = useState(false);
   const [filter, setFilter] = useState<"all" | "scheduled" | "draft" | "published">("all");
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   useEffect(() => {
     setPosts(getPosts());
@@ -28,14 +30,26 @@ export default function PostsClient() {
     setPosts(getPosts());
   }
 
-  function handleSave(post: ScheduledPost) {
+  async function handleSave(post: ScheduledPost, postNow?: boolean) {
     const existing = getPosts().find((p) => p.id === post.id);
     if (existing) {
       updatePost(post.id, post);
     } else {
       addPost(post);
     }
+    if (postNow) {
+      setPublishingId(post.id);
+      await publishPostNow(post.id);
+      setPublishingId(null);
+    }
     setShowComposer(false);
+    refresh();
+  }
+
+  async function handlePostNow(id: string) {
+    setPublishingId(id);
+    await publishPostNow(id);
+    setPublishingId(null);
     refresh();
   }
 
@@ -96,13 +110,8 @@ export default function PostsClient() {
                         refresh();
                       }
                     }}
-                    onPublish={(id) => {
-                      updatePost(id, {
-                        status: "published",
-                        publishedAt: new Date().toISOString(),
-                      });
-                      refresh();
-                    }}
+                    onPublish={handlePostNow}
+                    publishing={publishingId === post.id}
                   />
                 ))}
               </div>

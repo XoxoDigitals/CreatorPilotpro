@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
+import { migrateToCleanStore } from "@/lib/stores/app-store";
 
 interface DashboardLayoutContextValue {
   openMenu: () => void;
@@ -17,6 +18,10 @@ export function useDashboardLayout() {
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    migrateToCleanStore();
+  }, []);
 
   return (
     <DashboardLayoutContext.Provider value={{ openMenu: () => setMobileOpen(true) }}>

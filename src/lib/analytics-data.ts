@@ -75,10 +75,22 @@ export function formatCompact(n: number): string {
   return String(n);
 }
 
-export function getViewsTrend(): { label: string; value: number }[] {
+export function getViewsTrend(posts: ScheduledPost[]): { label: string; value: number }[] {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const published = posts.filter((p) => p.status === "published");
+
+  if (published.length === 0) {
+    return days.map((label) => ({ label, value: 0 }));
+  }
+
+  const totalViews = published.reduce(
+    (sum, p) => sum + metric(2400, p.id, 2.5),
+    0
+  );
+  const perDay = Math.round(totalViews / 7);
+
   return days.map((label, i) => ({
     label,
-    value: 1200 + i * 340 + (i % 2) * 280,
+    value: Math.round(perDay * (0.7 + (i % 3) * 0.15)),
   }));
 }

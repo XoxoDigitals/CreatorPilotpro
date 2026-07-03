@@ -50,11 +50,13 @@ export function DashboardTopBar({
             </Link>
           )}
           <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium">{profile.name}</p>
-            <p className="text-xs text-muted-foreground">{profile.email}</p>
+            <p className="text-sm font-medium">{profile.name || "Your account"}</p>
+            {profile.email && (
+              <p className="text-xs text-muted-foreground">{profile.email}</p>
+            )}
           </div>
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-            {profile.name.charAt(0)}
+            {profile.name ? profile.name.charAt(0).toUpperCase() : "?"}
           </span>
         </div>
       </div>

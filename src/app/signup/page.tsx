@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
-import { setAuthenticated, saveUserProfile } from "@/lib/stores/app-store";
+import { setAuthenticated, saveUserProfile, migrateToCleanStore } from "@/lib/stores/app-store";
 import { btnPrimary, cardClass, inputClass, labelClass } from "@/lib/form-styles";
 
 export default function SignupPage() {
@@ -12,11 +12,12 @@ export default function SignupPage() {
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    migrateToCleanStore();
     const form = new FormData(e.currentTarget);
     saveUserProfile({
       id: "user-1",
-      name: String(form.get("name") || "Creator"),
-      email: String(form.get("email") || "creator@example.com"),
+      name: String(form.get("name") || ""),
+      email: String(form.get("email") || ""),
     });
     setAuthenticated(true);
     router.push("/dashboard");

@@ -17,10 +17,12 @@ import type { PlatformAnalytics } from "@/lib/types";
 
 export default function AnalyticsPage() {
   const [metrics, setMetrics] = useState<PlatformAnalytics[]>([]);
-  const [trend] = useState(() => getViewsTrend());
+  const [trend, setTrend] = useState<{ label: string; value: number }[]>([]);
 
   useEffect(() => {
-    setMetrics(getPlatformAnalytics(getPosts()));
+    const posts = getPosts();
+    setMetrics(getPlatformAnalytics(posts));
+    setTrend(getViewsTrend(posts));
   }, []);
 
   const totals = getTotalAnalytics(metrics);
@@ -34,7 +36,7 @@ export default function AnalyticsPage() {
       />
       <div className="mx-auto max-w-6xl space-y-8 p-4 lg:p-8">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard label="Total views" value={formatCompact(totals.views)} icon={Eye} trend={{ value: 14, label: "vs last week" }} />
+          <StatCard label="Total views" value={formatCompact(totals.views)} icon={Eye} />
           <StatCard label="Likes" value={formatCompact(totals.likes)} icon={Heart} />
           <StatCard label="Comments" value={formatCompact(totals.comments)} icon={MessageCircle} />
           <StatCard label="Shares" value={formatCompact(totals.shares)} icon={Share2} />
@@ -108,7 +110,7 @@ export default function AnalyticsPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Demo metrics based on your published posts. Connect live APIs for real-time platform data.
+          Metrics appear after you publish posts. Connect live APIs for real-time platform data.
         </p>
       </div>
     </>

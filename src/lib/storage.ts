@@ -30,4 +30,8 @@ export const STORAGE_KEYS = {
   profile: "creator-pilot-profile",
   auth: "creator-pilot-auth",
   apiCredentials: "creator-pilot-api-credentials",
+  dataVersion: "creator-pilot-data-version",
 } as const;
+
+/** Bump when demo/seed data should be cleared for all users. */
+export const DATA_STORE_VERSION = 2;

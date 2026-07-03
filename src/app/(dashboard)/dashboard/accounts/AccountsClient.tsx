@@ -10,7 +10,7 @@ import {
   removeAccount,
 } from "@/lib/stores/app-store";
 import { getPlatformConfigs } from "@/lib/platforms/config";
-import { btnPrimary, btnSecondary, cardClass } from "@/lib/form-styles";
+import { btnPrimary, cardClass } from "@/lib/form-styles";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 import type { ConnectedAccount, Platform } from "@/lib/types";
@@ -45,19 +45,6 @@ export default function AccountsClient() {
     setAccounts(getAccounts());
   }
 
-  function connectSandbox(platform: ConnectedAccount["platform"]) {
-    const demo: ConnectedAccount = {
-      id: generateId(`acc-${platform}`),
-      platform,
-      name: `Sandbox ${platform}`,
-      handle: `@sandbox_${platform}`,
-      connectedAt: new Date().toISOString(),
-      sandbox: true,
-    };
-    addAccount(demo);
-    refresh();
-  }
-
   function disconnect(id: string) {
     removeAccount(id);
     refresh();
@@ -76,8 +63,8 @@ export default function AccountsClient() {
             Connection failed: {error.replace(/_/g, " ")}. Paste API keys in{" "}
             <a href="/dashboard/settings" className="font-medium underline">
               Setup
-            </a>{" "}
-            or use sandbox demo.
+            </a>
+            , then try connecting again.
           </p>
         )}
 
@@ -93,13 +80,6 @@ export default function AccountsClient() {
                   <ExternalLink className="h-4 w-4" />
                   Connect with OAuth
                 </a>
-                <button
-                  type="button"
-                  onClick={() => connectSandbox(platform.id)}
-                  className={btnSecondary}
-                >
-                  Add sandbox demo
-                </button>
               </div>
               {connected.length > 0 && (
                 <ul className="mt-4 space-y-2 border-t border-border pt-4">

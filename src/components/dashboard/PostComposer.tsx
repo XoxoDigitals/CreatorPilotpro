@@ -31,7 +31,7 @@ import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { btnPrimary, btnSecondary, cardClass, inputClass, labelClass } from "@/lib/form-styles";
 
 interface PostComposerProps {
-  onSave: (post: ScheduledPost) => void;
+  onSave: (post: ScheduledPost, postNow?: boolean) => void;
   onCancel: () => void;
   initial?: ScheduledPost;
 }
@@ -48,6 +48,7 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
       : ""
   );
   const [status, setStatus] = useState<PostStatus>(initial?.status ?? "scheduled");
+  const [publishTiming, setPublishTiming] = useState<"schedule" | "now">("schedule");
   const [mediaType, setMediaType] = useState(initial?.mediaType);
   const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl);
   const [mediaFileName, setMediaFileName] = useState(initial?.mediaFileName);
@@ -70,12 +71,13 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
     });
   }
 
-  function handleSubmit(asDraft: boolean) {
+  function handleSubmit(asDraft: boolean, postNow = false) {
     if (platforms.length === 0) return;
     const accounts = getAccounts().filter((a) => platforms.includes(a.platform));
     const title = postDisplayTitle(platforms, youtube, tiktok, facebook);
     const description =
       youtube.description || facebook.message || tiktok.caption || "";
+    const now = new Date().toISOString();
 
     const post: ScheduledPost = {
       id: initial?.id ?? generateId("post"),
@@ -83,20 +85,22 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
       description,
       platforms,
       accountIds: accounts.map((a) => a.id),
-      scheduledAt: scheduledAt
-        ? new Date(scheduledAt).toISOString()
-        : new Date().toISOString(),
-      status: asDraft ? "draft" : status,
+      scheduledAt: postNow
+        ? now
+        : scheduledAt
+          ? new Date(scheduledAt).toISOString()
+          : now,
+      status: asDraft ? "draft" : postNow ? "scheduled" : status,
       mediaType,
       mediaUrl,
       mediaFileName,
       youtube: platforms.includes("youtube") ? youtube : undefined,
       tiktok: platforms.includes("tiktok") ? tiktok : undefined,
       facebook: platforms.includes("facebook") ? facebook : undefined,
-      createdAt: initial?.createdAt ?? new Date().toISOString(),
+      createdAt: initial?.createdAt ?? now,
     };
 
-    onSave(post);
+    onSave(post, postNow);
   }
 
   return (
@@ -305,18 +309,59 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
       {step === 3 && (
         <div className="space-y-4">
           <div>
-            <label className={labelClass}>Publish date & time</label>
-            <input type="datetime-local" className={inputClass} value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)} required />
+            <label className={labelClass}>When to publish</label>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPublishTiming("schedule")}
+                className={`rounded-full border px-4 py-2 text-xs font-medium ${
+                  publishTiming === "schedule"
+                    ? "border-primary/20 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                }`}
+              >
+                Schedule for later
+              </button>
+              <button
+                type="button"
+                onClick={() => setPublishTiming("now")}
+                className={`rounded-full border px-4 py-2 text-xs font-medium ${
+                  publishTiming === "now"
+                    ? "border-primary/20 bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground"
+                }`}
+              >
+                Post now
+              </button>
+            </div>
           </div>
-          <div>
-            <label className={labelClass}>Status</label>
-            <select className={inputClass} value={status}
-              onChange={(e) => setStatus(e.target.value as PostStatus)}>
-              <option value="scheduled">Scheduled — publish automatically</option>
-              <option value="draft">Draft — save for later</option>
-            </select>
-          </div>
+
+          {publishTiming === "schedule" && (
+            <>
+              <div>
+                <label className={labelClass}>Publish date & time</label>
+                <input type="datetime-local" className={inputClass} value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)} required />
+              </div>
+              <div>
+                <label className={labelClass}>Status</label>
+                <select className={inputClass} value={status}
+                  onChange={(e) => setStatus(e.target.value as PostStatus)}>
+                  <option value="scheduled">Scheduled — publish automatically</option>
+                  <option value="draft">Draft — save for later</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {publishTiming === "now" && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+              <p className="font-semibold text-primary">Post immediately</p>
+              <p className="mt-1 text-muted-foreground">
+                Your content will be sent to all selected platforms right away.
+              </p>
+            </div>
+          )}
           <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
             <p className="font-semibold">Summary</p>
             <p className="mt-2 text-muted-foreground">
@@ -332,12 +377,21 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
           <div className="flex flex-wrap justify-between gap-2 pt-2">
             <button type="button" onClick={() => setStep(2)} className={btnSecondary}>Back</button>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => handleSubmit(true)} className={btnSecondary}>
-                <Save className="h-4 w-4" /> Save draft
-              </button>
-              <button type="button" onClick={() => handleSubmit(false)} className={btnPrimary}>
-                <Send className="h-4 w-4" /> Schedule post
-              </button>
+              {publishTiming === "schedule" && (
+                <>
+                  <button type="button" onClick={() => handleSubmit(true)} className={btnSecondary}>
+                    <Save className="h-4 w-4" /> Save draft
+                  </button>
+                  <button type="button" onClick={() => handleSubmit(false)} className={btnPrimary}>
+                    <Calendar className="h-4 w-4" /> Schedule post
+                  </button>
+                </>
+              )}
+              {publishTiming === "now" && (
+                <button type="button" onClick={() => handleSubmit(false, true)} className={btnPrimary}>
+                  <Send className="h-4 w-4" /> Post now
+                </button>
+              )}
             </div>
           </div>
         </div>

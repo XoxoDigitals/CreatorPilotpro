@@ -1,10 +1,10 @@
 "use client";
 
-import { Calendar, Film, Trash2, CheckCircle2 } from "lucide-react";
+import { Calendar, Film, Trash2, Send, Loader2 } from "lucide-react";
 import type { ScheduledPost } from "@/lib/types";
 import { postDisplayTitle } from "@/lib/platform-post-fields";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
-import { cardClass, btnSecondary } from "@/lib/form-styles";
+import { cardClass, btnPrimary } from "@/lib/form-styles";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -18,9 +18,17 @@ interface PostCardProps {
   post: ScheduledPost;
   onDelete: (id: string) => void;
   onPublish?: (id: string) => void;
+  publishLabel?: string;
+  publishing?: boolean;
 }
 
-export function PostCard({ post, onDelete, onPublish }: PostCardProps) {
+export function PostCard({
+  post,
+  onDelete,
+  onPublish,
+  publishLabel = "Post now",
+  publishing = false,
+}: PostCardProps) {
   const title = postDisplayTitle(
     post.platforms,
     post.youtube,
@@ -80,10 +88,19 @@ export function PostCard({ post, onDelete, onPublish }: PostCardProps) {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-        {post.status === "scheduled" && onPublish && (
-          <button type="button" onClick={() => onPublish(post.id)} className={btnSecondary}>
-            <CheckCircle2 className="h-4 w-4" />
-            Mark published
+        {(post.status === "scheduled" || post.status === "draft") && onPublish && (
+          <button
+            type="button"
+            onClick={() => onPublish(post.id)}
+            disabled={publishing}
+            className={btnPrimary}
+          >
+            {publishing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            {publishing ? "Publishing…" : publishLabel}
           </button>
         )}
         <button
