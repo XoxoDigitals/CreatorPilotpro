@@ -1,0 +1,347 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Calendar,
+  Save,
+  Send,
+} from "lucide-react";
+import type {
+  FacebookPostContent,
+  Platform,
+  PostStatus,
+  ScheduledPost,
+  TikTokPostContent,
+  YouTubePostContent,
+} from "@/lib/types";
+import {
+  defaultFacebookContent,
+  defaultTikTokContent,
+  defaultYouTubeContent,
+  FACEBOOK_CTA_OPTIONS,
+  parseTags,
+  PLATFORM_FIELD_HINTS,
+  postDisplayTitle,
+  YOUTUBE_CATEGORIES,
+} from "@/lib/platform-post-fields";
+import { getAccounts, generateId } from "@/lib/stores/app-store";
+import { MediaUpload } from "@/components/dashboard/MediaUpload";
+import { ThumbnailUpload } from "@/components/dashboard/ThumbnailUpload";
+import { PlatformIcon } from "@/components/shared/PlatformIcon";
+import { btnPrimary, btnSecondary, cardClass, inputClass, labelClass } from "@/lib/form-styles";
+
+interface PostComposerProps {
+  onSave: (post: ScheduledPost) => void;
+  onCancel: () => void;
+  initial?: ScheduledPost;
+}
+
+const PLATFORMS: Platform[] = ["youtube", "tiktok", "facebook"];
+
+export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [platforms, setPlatforms] = useState<Platform[]>(initial?.platforms ?? ["youtube"]);
+  const [activeTab, setActiveTab] = useState<Platform>(platforms[0] ?? "youtube");
+  const [scheduledAt, setScheduledAt] = useState(
+    initial?.scheduledAt
+      ? new Date(initial.scheduledAt).toISOString().slice(0, 16)
+      : ""
+  );
+  const [status, setStatus] = useState<PostStatus>(initial?.status ?? "scheduled");
+  const [mediaType, setMediaType] = useState(initial?.mediaType);
+  const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl);
+  const [mediaFileName, setMediaFileName] = useState(initial?.mediaFileName);
+  const [youtube, setYoutube] = useState<YouTubePostContent>(
+    initial?.youtube ?? defaultYouTubeContent()
+  );
+  const [tiktok, setTiktok] = useState<TikTokPostContent>(
+    initial?.tiktok ?? defaultTikTokContent()
+  );
+  const [facebook, setFacebook] = useState<FacebookPostContent>(
+    initial?.facebook ?? defaultFacebookContent()
+  );
+
+  function togglePlatform(p: Platform) {
+    setPlatforms((prev) => {
+      const next = prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p];
+      if (next.length === 0) return prev;
+      if (!next.includes(activeTab)) setActiveTab(next[0]);
+      return next;
+    });
+  }
+
+  function handleSubmit(asDraft: boolean) {
+    if (platforms.length === 0) return;
+    const accounts = getAccounts().filter((a) => platforms.includes(a.platform));
+    const title = postDisplayTitle(platforms, youtube, tiktok, facebook);
+    const description =
+      youtube.description || facebook.message || tiktok.caption || "";
+
+    const post: ScheduledPost = {
+      id: initial?.id ?? generateId("post"),
+      title,
+      description,
+      platforms,
+      accountIds: accounts.map((a) => a.id),
+      scheduledAt: scheduledAt
+        ? new Date(scheduledAt).toISOString()
+        : new Date().toISOString(),
+      status: asDraft ? "draft" : status,
+      mediaType,
+      mediaUrl,
+      mediaFileName,
+      youtube: platforms.includes("youtube") ? youtube : undefined,
+      tiktok: platforms.includes("tiktok") ? tiktok : undefined,
+      facebook: platforms.includes("facebook") ? facebook : undefined,
+      createdAt: initial?.createdAt ?? new Date().toISOString(),
+    };
+
+    onSave(post);
+  }
+
+  return (
+    <div className={`${cardClass} space-y-6`}>
+      <div className="flex flex-wrap gap-2">
+        {([1, 2, 3] as const).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setStep(n)}
+            className={`rounded-full px-4 py-1.5 text-xs font-medium ${
+              step === n
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {n === 1 ? "1. Platforms & media" : n === 2 ? "2. Content" : "3. Schedule"}
+          </button>
+        ))}
+      </div>
+
+      {step === 1 && (
+        <div className="space-y-6">
+          <div>
+            <p className={labelClass}>Where should this post go?</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {PLATFORMS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePlatform(p)}
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm transition ${
+                    platforms.includes(p)
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
+                  <PlatformIcon platform={p} />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className={labelClass}>Video or image</p>
+            <div className="mt-2">
+              <MediaUpload
+                mediaType={mediaType}
+                mediaUrl={mediaUrl}
+                mediaFileName={mediaFileName}
+                onChange={({ mediaType: t, mediaUrl: u, mediaFileName: f }) => {
+                  setMediaType(t);
+                  setMediaUrl(u);
+                  setMediaFileName(f);
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onCancel} className={btnSecondary}>Cancel</button>
+            <button type="button" onClick={() => setStep(2)} className={btnPrimary} disabled={platforms.length === 0}>
+              Next: Edit content
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+            {platforms.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setActiveTab(p)}
+                className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                  activeTab === p ? "bg-primary/10 text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <PlatformIcon platform={p} />
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">{PLATFORM_FIELD_HINTS[activeTab]}</p>
+
+          {activeTab === "youtube" && platforms.includes("youtube") && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Title *</label>
+                <input className={inputClass} value={youtube.title} maxLength={100}
+                  onChange={(e) => setYoutube({ ...youtube, title: e.target.value })} placeholder="Catchy video title" />
+                <p className="mt-1 text-xs text-muted-foreground">{youtube.title.length}/100</p>
+              </div>
+              <div>
+                <label className={labelClass}>Description</label>
+                <textarea className={`${inputClass} h-auto py-3`} rows={4} value={youtube.description}
+                  onChange={(e) => setYoutube({ ...youtube, description: e.target.value })} placeholder="Tell viewers what this video is about..." />
+              </div>
+              <div>
+                <label className={labelClass}>Tags (comma-separated)</label>
+                <input className={inputClass} value={youtube.tags.join(", ")}
+                  onChange={(e) => setYoutube({ ...youtube, tags: parseTags(e.target.value) })} placeholder="shorts, tutorial, creator" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>Category</label>
+                  <select className={inputClass} value={youtube.category}
+                    onChange={(e) => setYoutube({ ...youtube, category: e.target.value })}>
+                    {YOUTUBE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Visibility</label>
+                  <select className={inputClass} value={youtube.visibility}
+                    onChange={(e) => setYoutube({ ...youtube, visibility: e.target.value as YouTubePostContent["visibility"] })}>
+                    <option value="public">Public</option>
+                    <option value="unlisted">Unlisted</option>
+                    <option value="private">Private</option>
+                  </select>
+                </div>
+              </div>
+              <ThumbnailUpload label="Custom thumbnail" value={youtube.thumbnailUrl}
+                onChange={(url) => setYoutube({ ...youtube, thumbnailUrl: url })} />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={youtube.madeForKids}
+                  onChange={(e) => setYoutube({ ...youtube, madeForKids: e.target.checked })} />
+                Made for kids
+              </label>
+            </div>
+          )}
+
+          {activeTab === "tiktok" && platforms.includes("tiktok") && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Caption *</label>
+                <textarea className={`${inputClass} h-auto py-3`} rows={3} value={tiktok.caption} maxLength={2200}
+                  onChange={(e) => setTiktok({ ...tiktok, caption: e.target.value })} placeholder="Write your TikTok caption..." />
+                <p className="mt-1 text-xs text-muted-foreground">{tiktok.caption.length}/2200</p>
+              </div>
+              <div>
+                <label className={labelClass}>Hashtags (comma or # separated)</label>
+                <input className={inputClass} value={tiktok.hashtags.map((h) => `#${h}`).join(" ")}
+                  onChange={(e) => setTiktok({ ...tiktok, hashtags: parseTags(e.target.value) })} placeholder="#fyp #creator #tips" />
+              </div>
+              <div>
+                <label className={labelClass}>Who can view</label>
+                <select className={inputClass} value={tiktok.privacy}
+                  onChange={(e) => setTiktok({ ...tiktok, privacy: e.target.value as TikTokPostContent["privacy"] })}>
+                  <option value="public_to_everyone">Everyone</option>
+                  <option value="mutual_follow_friends">Friends</option>
+                  <option value="self_only">Only me</option>
+                </select>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={tiktok.allowComments} onChange={(e) => setTiktok({ ...tiktok, allowComments: e.target.checked })} />
+                  Allow comments
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={tiktok.allowDuet} onChange={(e) => setTiktok({ ...tiktok, allowDuet: e.target.checked })} />
+                  Allow duet
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={tiktok.allowStitch} onChange={(e) => setTiktok({ ...tiktok, allowStitch: e.target.checked })} />
+                  Allow stitch
+                </label>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "facebook" && platforms.includes("facebook") && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Post message *</label>
+                <textarea className={`${inputClass} h-auto py-3`} rows={3} value={facebook.message}
+                  onChange={(e) => setFacebook({ ...facebook, message: e.target.value })} placeholder="What do you want to say to your audience?" />
+              </div>
+              <div>
+                <label className={labelClass}>Video title</label>
+                <input className={inputClass} value={facebook.title}
+                  onChange={(e) => setFacebook({ ...facebook, title: e.target.value })} placeholder="Title shown on the video" />
+              </div>
+              <div>
+                <label className={labelClass}>Video description</label>
+                <textarea className={`${inputClass} h-auto py-3`} rows={2} value={facebook.description}
+                  onChange={(e) => setFacebook({ ...facebook, description: e.target.value })} placeholder="Additional context for the video" />
+              </div>
+              <div>
+                <label className={labelClass}>Call to action button</label>
+                <select className={inputClass} value={facebook.callToAction}
+                  onChange={(e) => setFacebook({ ...facebook, callToAction: e.target.value as FacebookPostContent["callToAction"] })}>
+                  {FACEBOOK_CTA_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <ThumbnailUpload label="Video thumbnail" value={facebook.thumbnailUrl}
+                onChange={(url) => setFacebook({ ...facebook, thumbnailUrl: url })} />
+            </div>
+          )}
+
+          <div className="flex justify-between gap-2 pt-2">
+            <button type="button" onClick={() => setStep(1)} className={btnSecondary}>Back</button>
+            <button type="button" onClick={() => setStep(3)} className={btnPrimary}>Next: Schedule</button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-4">
+          <div>
+            <label className={labelClass}>Publish date & time</label>
+            <input type="datetime-local" className={inputClass} value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)} required />
+          </div>
+          <div>
+            <label className={labelClass}>Status</label>
+            <select className={inputClass} value={status}
+              onChange={(e) => setStatus(e.target.value as PostStatus)}>
+              <option value="scheduled">Scheduled — publish automatically</option>
+              <option value="draft">Draft — save for later</option>
+            </select>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
+            <p className="font-semibold">Summary</p>
+            <p className="mt-2 text-muted-foreground">
+              {postDisplayTitle(platforms, youtube, tiktok, facebook)}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {platforms.map((p) => <PlatformIcon key={p} platform={p} />)}
+            </div>
+            {mediaFileName && (
+              <p className="mt-2 text-xs text-muted-foreground">Media: {mediaFileName}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap justify-between gap-2 pt-2">
+            <button type="button" onClick={() => setStep(2)} className={btnSecondary}>Back</button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => handleSubmit(true)} className={btnSecondary}>
+                <Save className="h-4 w-4" /> Save draft
+              </button>
+              <button type="button" onClick={() => handleSubmit(false)} className={btnPrimary}>
+                <Send className="h-4 w-4" /> Schedule post
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
