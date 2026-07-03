@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: "pages_manage_posts,pages_read_engagement,pages_show_list,publish_video",
+    scope: "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_metadata",
     response_type: "code",
   });
 

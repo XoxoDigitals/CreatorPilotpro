@@ -161,7 +161,7 @@ export const API_SETUP_GUIDES: PlatformSetupGuide[] = [
       },
       {
         title: "Request Page permissions",
-        body: "Your app needs pages_manage_posts, pages_read_engagement, pages_show_list, and publish_video for video scheduling.",
+        body: "Your app needs pages_show_list, pages_manage_posts, pages_read_engagement, and pages_manage_metadata. Video publishing uses the Graph API with a Page access token — there is no publish_video permission.",
       },
       {
         title: "Add data deletion callback",

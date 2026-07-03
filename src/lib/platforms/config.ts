@@ -35,10 +35,10 @@ export function getPlatformConfigs(): PlatformConfig[] {
       name: "Facebook",
       authPath: "/api/auth/facebook",
       scopes: [
+        "pages_show_list",
         "pages_manage_posts",
         "pages_read_engagement",
-        "pages_show_list",
-        "publish_video",
+        "pages_manage_metadata",
       ],
       sandboxNote:
         "Paste your Facebook App ID and Secret in Settings → API keys, or add them to .env.local.",
