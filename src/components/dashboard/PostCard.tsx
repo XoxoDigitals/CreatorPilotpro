@@ -85,6 +85,11 @@ export function PostCard({
               YT tags: {post.youtube.tags.join(", ")}
             </p>
           )}
+          {post.platforms.includes("youtube") && post.youtube && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              YouTube: {(post.youtube.videoType ?? "short") === "short" ? "Short" : "Long-form"}
+            </p>
+          )}
           {post.tiktok?.hashtags && post.tiktok.hashtags.length > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
               TT: {post.tiktok.hashtags.map((h) => `#${h}`).join(" ")}

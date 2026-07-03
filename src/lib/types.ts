@@ -11,7 +11,10 @@ export type ScheduleMode = "fixed" | "weekly";
 
 export type MediaType = "video" | "image";
 
+export type YouTubeVideoType = "short" | "long";
+
 export interface YouTubePostContent {
+  videoType: YouTubeVideoType;
   title: string;
   description: string;
   tags: string[];

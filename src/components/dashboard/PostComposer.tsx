@@ -23,6 +23,7 @@ import {
   PLATFORM_FIELD_HINTS,
   postDisplayTitle,
   YOUTUBE_CATEGORIES,
+  YOUTUBE_VIDEO_TYPE_OPTIONS,
 } from "@/lib/platform-post-fields";
 import Link from "next/link";
 import { getAccounts, generateId } from "@/lib/stores/app-store";
@@ -83,8 +84,14 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
   const [mediaId, setMediaId] = useState(initial?.mediaId);
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(initial?.mediaUrl);
   const [mediaFileName, setMediaFileName] = useState(initial?.mediaFileName);
-  const [youtube, setYoutube] = useState<YouTubePostContent>(
-    initial?.youtube ?? defaultYouTubeContent()
+  const [youtube, setYoutube] = useState<YouTubePostContent>(() =>
+    initial?.youtube
+      ? {
+          ...defaultYouTubeContent(),
+          ...initial.youtube,
+          videoType: initial.youtube.videoType ?? "short",
+        }
+      : defaultYouTubeContent()
   );
   const [tiktok, setTiktok] = useState<TikTokPostContent>(
     initial?.tiktok ?? defaultTikTokContent()
@@ -358,6 +365,26 @@ export function PostComposer({ onSave, onCancel, initial }: PostComposerProps) {
 
           {activeTab === "youtube" && platforms.includes("youtube") && (
             <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Video type</label>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {YOUTUBE_VIDEO_TYPE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setYoutube({ ...youtube, videoType: option.value })}
+                      className={`rounded-xl border p-4 text-left transition ${
+                        (youtube.videoType ?? "short") === option.value
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{option.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{option.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className={labelClass}>Title *</label>
                 <input className={inputClass} value={youtube.title} maxLength={100}

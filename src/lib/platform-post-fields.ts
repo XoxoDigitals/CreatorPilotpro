@@ -3,6 +3,7 @@ import type {
   Platform,
   TikTokPostContent,
   YouTubePostContent,
+  YouTubeVideoType,
 } from "./types";
 
 export const YOUTUBE_CATEGORIES = [
@@ -22,8 +23,26 @@ export const FACEBOOK_CTA_OPTIONS = [
   { value: "WATCH_MORE", label: "Watch more" },
 ] as const;
 
+export const YOUTUBE_VIDEO_TYPE_OPTIONS: {
+  value: YouTubeVideoType;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "short",
+    label: "Short",
+    hint: "Vertical 9:16, up to 60 seconds. Best for YouTube Shorts.",
+  },
+  {
+    value: "long",
+    label: "Long-form",
+    hint: "Standard YouTube video — any length and aspect ratio.",
+  },
+];
+
 export function defaultYouTubeContent(): YouTubePostContent {
   return {
+    videoType: "short",
     title: "",
     description: "",
     tags: [],
@@ -76,7 +95,7 @@ export function postDisplayTitle(
 }
 
 export const PLATFORM_FIELD_HINTS: Record<Platform, string> = {
-  youtube: "Title, description, tags, thumbnail, and visibility for YouTube.",
+  youtube: "Title, description, tags, thumbnail, visibility, and Short vs long-form for YouTube.",
   tiktok: "Caption, hashtags, and privacy settings for TikTok.",
   facebook: "Post message, video title, description, and call-to-action for Facebook.",
 };
