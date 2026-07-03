@@ -122,7 +122,11 @@ async function refreshTikTokAccessToken(
 
   if (!res.ok) return null;
 
-  const tokens = await res.json();
+  const raw = await res.json();
+  const tokens =
+    raw?.data && typeof raw.data === "object"
+      ? raw.data
+      : raw;
   return {
     ...auth,
     accessToken: tokens.access_token,

@@ -3,6 +3,18 @@ import { getAppUrlFromRequest } from "@/lib/platforms/config";
 import { resolvePlatformCredentials } from "@/lib/platforms/credentials";
 import { savePlatformAuth } from "@/lib/platforms/platform-tokens";
 
+function getTikTokApiError(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const body = raw as Record<string, unknown>;
+  if (body.error_description) return String(body.error_description);
+  const err = body.error;
+  if (err && typeof err === "object" && "message" in err) {
+    return String((err as { message?: string }).message);
+  }
+  if (typeof err === "string") return err;
+  return "";
+}
+
 function parseTikTokTokenPayload(raw: unknown): {
   access_token?: string;
   refresh_token?: string;
@@ -45,7 +57,8 @@ export async function GET(request: NextRequest) {
   const storedState = request.cookies.get("tiktok_oauth_state")?.value;
 
   if (!code || !state || state !== storedState) {
-    return NextResponse.redirect(`${base}?error=tiktok_auth_failed`);
+    const reason = !code ? "no_code" : !state ? "no_state" : "state_mismatch";
+    return NextResponse.redirect(`${base}?error=tiktok_auth_failed&detail=${reason}`);
   }
 
   const creds = resolvePlatformCredentials(request, "tiktok");
@@ -72,12 +85,7 @@ export async function GET(request: NextRequest) {
     const tokens = parseTikTokTokenPayload(tokenJson);
 
     if (!tokenRes.ok || !tokens.access_token) {
-      const apiMsg =
-        tokenJson &&
-        typeof tokenJson === "object" &&
-        "error_description" in tokenJson
-          ? String((tokenJson as { error_description?: string }).error_description)
-          : "";
+      const apiMsg = getTikTokApiError(tokenJson);
       const detail = apiMsg ? encodeURIComponent(apiMsg.slice(0, 200)) : "";
       return NextResponse.redirect(
         `${base}?error=tiktok_token_failed${detail ? `&detail=${detail}` : ""}`
@@ -87,19 +95,25 @@ export async function GET(request: NextRequest) {
     const accessToken = tokens.access_token;
 
     let displayName = "TikTok Account";
-    let username = "tiktok";
+    let username = "";
+    let openId = "";
     const userRes = await fetch(
-      "https://open.tiktokapis.com/v2/user/info/?fields=display_name,username",
+      "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,username",
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     if (userRes.ok) {
       const userData = await userRes.json();
       const user = userData.data?.user;
-      username = user?.username ?? username;
-      displayName = user?.display_name ?? username ?? displayName;
+      openId = user?.open_id ?? "";
+      username = user?.username ?? "";
+      displayName = user?.display_name ?? displayName;
     }
 
-    const handle = `@${String(username).replace(/^@/, "")}`;
+    const handleSource =
+      username ||
+      displayName.replace(/\s+/g, "").toLowerCase() ||
+      (openId ? `user_${openId.slice(-8)}` : "tiktok");
+    const handle = `@${String(handleSource).replace(/^@/, "")}`;
     const params = new URLSearchParams({
       connected: "tiktok",
       name: displayName,

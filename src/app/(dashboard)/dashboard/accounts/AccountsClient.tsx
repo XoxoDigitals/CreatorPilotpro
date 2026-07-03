@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ExternalLink, Unplug } from "lucide-react";
+import { CheckCircle2, ExternalLink, Unplug } from "lucide-react";
 import {
   generateId,
   getAccounts,
@@ -20,6 +20,12 @@ import { btnPrimary, cardClass } from "@/lib/form-styles";
 import { PlatformIcon } from "@/components/shared/PlatformIcon";
 import { DashboardTopBar } from "@/components/layout/DashboardTopBar";
 import type { ConnectedAccount, Platform } from "@/lib/types";
+
+interface ServerConnectedAccount {
+  platform: Platform;
+  name: string;
+  handle: string;
+}
 
 function formatHandle(handle: string): string {
   const clean = handle.replace(/^@+/, "").trim();
@@ -49,22 +55,62 @@ function resolveErrorMessage(error: string, detail: string | null): string {
     `Connection failed (${error.replace(/_/g, " ")}). Save API keys in Setup, then try again.`;
   if (detail) {
     try {
-      return `${base} TikTok says: ${decodeURIComponent(detail)}`;
+      const decoded = decodeURIComponent(detail);
+      if (decoded === "state_mismatch") {
+        return `${base} (OAuth session cookie was lost — try Connect again in the same browser tab.)`;
+      }
+      return `${base} Details: ${decoded}`;
     } catch {
-      return `${base} TikTok says: ${detail}`;
+      return `${base} Details: ${detail}`;
     }
   }
   return base;
 }
 
+function persistConnectedAccount(
+  platform: Platform,
+  name: string,
+  handle: string,
+  sandbox: boolean
+): void {
+  upsertAccount({
+    id: generateId(`acc-${platform}`),
+    platform,
+    name,
+    handle,
+    connectedAt: new Date().toISOString(),
+    sandbox,
+  });
+}
+
+async function syncAccountsFromServer(): Promise<ConnectedAccount[]> {
+  try {
+    const res = await fetch("/api/auth/connected-accounts");
+    if (!res.ok) return getAccounts();
+    const data = (await res.json()) as { accounts?: ServerConnectedAccount[] };
+    for (const account of data.accounts ?? []) {
+      persistConnectedAccount(account.platform, account.name, account.handle, false);
+    }
+  } catch {
+    /* offline or server unavailable */
+  }
+  return getAccounts();
+}
+
 export default function AccountsClient() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [connecting, setConnecting] = useState<Platform | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const platforms = getPlatformConfigs();
   const error = searchParams.get("error");
   const errorDetail = searchParams.get("detail");
   const oauthHandled = useRef(false);
+
+  const refreshAccounts = useCallback(async () => {
+    const next = await syncAccountsFromServer();
+    setAccounts(next);
+  }, []);
 
   useEffect(() => {
     const connected = searchParams.get("connected") as Platform | null;
@@ -72,45 +118,39 @@ export default function AccountsClient() {
     const handleParam = searchParams.get("handle");
     const sandbox = searchParams.get("sandbox") !== "false";
 
-    if (connected && name && !oauthHandled.current) {
-      oauthHandled.current = true;
-
-      const handle =
-        handleParam?.trim() ||
-        `@${normalizeAccountHandle(name)}`;
-
-      const oauthKey = `creator-pilot-oauth-${connected}-${normalizeAccountHandle(handle)}`;
-      const alreadyProcessed = sessionStorage.getItem(oauthKey);
-
-      if (!alreadyProcessed) {
-        upsertAccount({
-          id: generateId(`acc-${connected}`),
-          platform: connected,
-          name,
-          handle,
-          connectedAt: new Date().toISOString(),
-          sandbox,
-        });
-        sessionStorage.setItem(oauthKey, "1");
+    async function handleOAuthReturn() {
+      if (connected && name && !oauthHandled.current) {
+        oauthHandled.current = true;
+        const handle =
+          handleParam?.trim() || `@${normalizeAccountHandle(name)}`;
+        persistConnectedAccount(connected, name, handle, sandbox);
+        setSuccessMessage(`${name} connected successfully.`);
+        window.history.replaceState({}, "", "/dashboard/accounts");
       }
 
-      window.history.replaceState({}, "", "/dashboard/accounts");
+      await refreshAccounts();
     }
 
-    setAccounts(getAccounts());
-  }, [searchParams]);
+    void handleOAuthReturn();
+  }, [searchParams, refreshAccounts]);
 
-  function refresh() {
-    setAccounts(getAccounts());
-  }
-
-  function disconnect(id: string) {
+  async function disconnect(id: string, platform: Platform) {
     removeAccount(id);
-    refresh();
+    try {
+      await fetch("/api/auth/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform }),
+      });
+    } catch {
+      /* local disconnect still applies */
+    }
+    setAccounts(getAccounts());
   }
 
   async function connectPlatform(platform: Platform, authPath: string) {
     setConnecting(platform);
+    setSuccessMessage(null);
     try {
       let status = await fetchCredentialStatus();
       if (!status[platform]) {
@@ -134,6 +174,13 @@ export default function AccountsClient() {
         subtitle="Connect YouTube, TikTok, and Facebook"
       />
       <div className="mx-auto max-w-6xl space-y-6 p-4 lg:p-8">
+
+        {successMessage && (
+          <p className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm text-primary">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {successMessage}
+          </p>
+        )}
 
         {error && (
           <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -186,7 +233,7 @@ export default function AccountsClient() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => disconnect(acc.id)}
+                        onClick={() => disconnect(acc.id, acc.platform)}
                         className="shrink-0 text-destructive hover:opacity-80"
                         aria-label="Disconnect"
                       >

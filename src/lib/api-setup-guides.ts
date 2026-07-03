@@ -104,7 +104,7 @@ export const API_SETUP_GUIDES: PlatformSetupGuide[] = [
       },
       {
         title: "Add Content Posting API product",
-        body: "Add the Content Posting API for video.upload and video.publish scopes. Request scopes: user.info.basic, video.upload, and video.publish.",
+        body: "Add the Content Posting API for video.upload and video.publish scopes. Request scopes: user.info.basic, user.info.profile, video.upload, and video.publish.",
         link: {
           label: "Content Posting API docs",
           href: "https://developers.tiktok.com/doc/content-posting-api-get-started",

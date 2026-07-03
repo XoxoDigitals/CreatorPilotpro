@@ -26,7 +26,7 @@ export function getPlatformConfigs(): PlatformConfig[] {
       id: "tiktok",
       name: "TikTok",
       authPath: "/api/auth/tiktok",
-      scopes: ["video.upload", "video.publish", "user.info.basic"],
+      scopes: ["user.info.basic", "user.info.profile", "video.upload", "video.publish"],
       sandboxNote:
         "Paste your TikTok Client Key and Secret in Settings → API keys, or add them to .env.local.",
     },
