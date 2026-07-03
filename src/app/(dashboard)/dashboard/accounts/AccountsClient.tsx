@@ -25,6 +25,52 @@ interface ServerConnectedAccount {
   platform: Platform;
   name: string;
   handle: string;
+  connectedAt?: string;
+}
+
+interface PlatformDiagnostics {
+  apiKeysConfigured: boolean;
+  profileCookie: boolean;
+  tokenInFile: boolean;
+  tokenAvailable: boolean;
+  name: string | null;
+  handle: string | null;
+}
+
+interface DiagnosticsPayload {
+  timestamp: string;
+  platforms: Record<Platform, PlatformDiagnostics>;
+  oauthLog: string[];
+  helpTextUrl: string;
+}
+
+function readUrlOAuthParams(): {
+  connected: Platform | null;
+  name: string | null;
+  handle: string | null;
+  sandbox: boolean;
+  error: string | null;
+  errorDetail: string | null;
+} {
+  if (typeof window === "undefined") {
+    return {
+      connected: null,
+      name: null,
+      handle: null,
+      sandbox: true,
+      error: null,
+      errorDetail: null,
+    };
+  }
+  const params = new URLSearchParams(window.location.search);
+  return {
+    connected: params.get("connected") as Platform | null,
+    name: params.get("name"),
+    handle: params.get("handle"),
+    sandbox: params.get("sandbox") !== "false",
+    error: params.get("error"),
+    errorDetail: params.get("detail"),
+  };
 }
 
 function formatHandle(handle: string): string {
@@ -101,22 +147,41 @@ export default function AccountsClient() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([]);
   const [connecting, setConnecting] = useState<Platform | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsPayload | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const searchParams = useSearchParams();
   const platforms = getPlatformConfigs();
-  const error = searchParams.get("error");
-  const errorDetail = searchParams.get("detail");
+  const urlParams = readUrlOAuthParams();
+  const error = searchParams.get("error") ?? urlParams.error;
+  const errorDetail = searchParams.get("detail") ?? urlParams.errorDetail;
   const oauthHandled = useRef(false);
+
+  const loadDiagnostics = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/diagnostics");
+      if (res.ok) {
+        setDiagnostics(await res.json());
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const refreshAccounts = useCallback(async () => {
     const next = await syncAccountsFromServer();
     setAccounts(next);
-  }, []);
+    await loadDiagnostics();
+  }, [loadDiagnostics]);
 
   useEffect(() => {
-    const connected = searchParams.get("connected") as Platform | null;
-    const name = searchParams.get("name");
-    const handleParam = searchParams.get("handle");
-    const sandbox = searchParams.get("sandbox") !== "false";
+    const fromWindow = readUrlOAuthParams();
+    const connected =
+      (searchParams.get("connected") as Platform | null) ?? fromWindow.connected;
+    const name = searchParams.get("name") ?? fromWindow.name;
+    const handleParam = searchParams.get("handle") ?? fromWindow.handle;
+    const sandboxParam = searchParams.get("sandbox");
+    const sandbox =
+      sandboxParam !== null ? sandboxParam !== "false" : fromWindow.sandbox;
 
     async function handleOAuthReturn() {
       if (connected && name && !oauthHandled.current) {
@@ -247,6 +312,66 @@ export default function AccountsClient() {
           );
         })}
       </div>
+
+      <section className={`${cardClass} space-y-3`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Connection diagnostics</h2>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowDiagnostics((v) => !v);
+                void loadDiagnostics();
+              }}
+              className="text-xs font-medium text-primary underline"
+            >
+              {showDiagnostics ? "Hide" : "Show"} status
+            </button>
+            <a
+              href="/TIKTOK-OAUTH-DEBUG.txt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-primary underline"
+            >
+              Troubleshooting guide (txt)
+            </a>
+          </div>
+        </div>
+        {showDiagnostics && (
+          <div className="space-y-3 text-xs text-muted-foreground">
+            {!diagnostics && <p>Loading diagnostics...</p>}
+            {diagnostics && (
+              <>
+                <p>Checked at: {diagnostics.timestamp}</p>
+                {(["tiktok", "youtube", "facebook"] as Platform[]).map((p) => {
+                  const d = diagnostics.platforms[p];
+                  if (!d) return null;
+                  return (
+                    <div key={p} className="rounded-lg border border-border p-3">
+                      <p className="font-semibold capitalize text-foreground">{p}</p>
+                      <ul className="mt-1 space-y-0.5">
+                        <li>API keys saved: {d.apiKeysConfigured ? "yes" : "no"}</li>
+                        <li>Profile cookie: {d.profileCookie ? "yes" : "no"}</li>
+                        <li>Token on server: {d.tokenInFile ? "yes" : "no"}</li>
+                        <li>Ready to publish: {d.tokenAvailable ? "yes" : "no"}</li>
+                        {d.handle && <li>Handle: {d.handle}</li>}
+                      </ul>
+                    </div>
+                  );
+                })}
+                {diagnostics.oauthLog.length > 0 && (
+                  <div>
+                    <p className="mb-1 font-medium text-foreground">Recent OAuth log</p>
+                    <pre className="max-h-40 overflow-auto rounded-lg bg-muted p-2 text-[10px] leading-relaxed">
+                      {diagnostics.oauthLog.join("\n")}
+                    </pre>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </section>
       </div>
     </>
   );

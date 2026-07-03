@@ -1,0 +1,69 @@
+Creator Pilot Pro — TikTok OAuth Troubleshooting
+==============================================
+
+Last updated: July 2026
+Live URL: https://creatorpilotpro.com
+
+QUICK CHECKLIST
+---------------
+[ ] 1. Setup → paste TikTok Client Key + Secret → click "Save API keys"
+[ ] 2. TikTok Developer Portal → add Login Kit (Web product)
+[ ] 3. TikTok Developer Portal → add Content Posting API
+[ ] 4. Register redirect URI EXACTLY (Login Kit settings):
+        https://creatorpilotpro.com/api/auth/tiktok/callback
+[ ] 5. Enable scopes: user.info.basic, user.info.profile, video.upload, video.publish
+[ ] 6. Sandbox mode: add your TikTok account as a test user
+[ ] 7. Server .env.local (optional but recommended):
+        NEXT_PUBLIC_APP_URL=https://creatorpilotpro.com
+        TIKTOK_CLIENT_KEY=your_key
+        TIKTOK_CLIENT_SECRET=your_secret
+[ ] 8. After git pull: npm run build && pm2 restart creator-pilot-pro
+[ ] 9. Connect on Channels page in the SAME browser where you saved API keys
+
+WHY LOGIN WORKS BUT ACCOUNT DOES NOT SHOW
+-----------------------------------------
+OAuth tokens are saved on the SERVER (file: .data/platform-tokens.json).
+Your account list is saved in the BROWSER (localStorage).
+
+After TikTok login you should land on:
+  /dashboard/accounts?connected=tiktok&name=...&handle=...
+
+If the account still does not appear:
+  • Open Channels page → scroll to "Connection diagnostics" at the bottom
+  • Check "tokenInFile" and "profileCookie" for tiktok — both should be true
+  • Read server log on VPS: cat /var/www/creator-pilot-pro/.data/oauth-debug.log
+
+COMMON ERRORS ON CHANNELS PAGE
+------------------------------
+tiktok_not_configured
+  → API keys not saved. Go to Setup and click Save API keys first.
+
+tiktok_auth_failed (state_mismatch)
+  → OAuth cookie lost. Do not open Connect in a new tab. Use same browser.
+
+tiktok_token_failed
+  → Redirect URI in TikTok portal does not match exactly, or wrong Client Secret.
+
+tiktok_denied
+  → You cancelled login, or your account is not added as sandbox test user.
+
+DIAGNOSTICS URL (JSON)
+----------------------
+https://creatorpilotpro.com/api/auth/diagnostics
+
+Shows (no secrets): API keys configured, token saved, profile cookie, last OAuth log lines.
+
+SERVER COMMANDS
+---------------
+cd /var/www/creator-pilot-pro
+git pull
+npm run build
+pm2 restart creator-pilot-pro
+cat .data/oauth-debug.log
+ls -la .data/
+
+SUPPORT INFO TO SEND
+--------------------
+1. Screenshot of Connection diagnostics on Channels page
+2. Last 20 lines of .data/oauth-debug.log from server
+3. Any red error message shown on Channels page after Connect
